@@ -196,5 +196,6 @@ batch/logs/*
 server/logs/*
 !server/logs/.gitkeep
 
-
+#*.index
+*.index
 
