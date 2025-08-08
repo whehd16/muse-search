@@ -199,3 +199,8 @@ server/logs/*
 #*.index
 *.index
 
+#.DS
+*.DS_Store
+
+#test
+text.py

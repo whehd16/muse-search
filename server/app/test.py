@@ -1,4 +1,4 @@
-from common.faiss_common import MuseFAISS
+from common.faiss_common import MuseFaiss
 from common.mysql_common import Database
 from common.oracle_common import OracleDB
 from common.llm_common import MuseLLM
@@ -8,7 +8,7 @@ import numpy as np
 import sys
 
 if __name__ == "__main__":
-    muse_faiss = MuseFAISS(d=1024)
+    muse_faiss = MuseFaiss(d=1024)
     muse_faiss.read_index('../../batch/index/20250805_bgem3_artist.index')
 
     # data = {

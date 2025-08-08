@@ -6,7 +6,7 @@ import numpy as np
 from datetime import datetime
 from common.logger_common import Logger
 from common.dataloader_common import MuseDataLoader
-from common.faiss_common import MuseFAISS
+from common.faiss_common import MuseFaiss
 
 Logger.set_logger(log_path='./logs', file_name='etc.log')
 
@@ -48,7 +48,7 @@ if __name__ == "__main__":
             train_vectors = MuseDataLoader.get_train_vectors(model=args.model, embedding_type=args.type)
 
             if train_vectors:
-                muse_faiss = MuseFAISS(d=args.dimension)                
+                muse_faiss = MuseFaiss(d=args.dimension)                
                 muse_faiss.set_index(nlist=int(math.sqrt(len(train_vectors))))
                 muse_faiss.train(vectors=np.array(train_vectors, dtype='float32'))
                 muse_faiss.write_index(args.output)                
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         elif args.func == 'add_faiss':
             Logger.set_logger(log_path=log_path, file_name=f'''add_{args.model}.log''')            
             
-            muse_faiss = MuseFAISS(d=args.dimension)
+            muse_faiss = MuseFaiss(d=args.dimension)
             muse_faiss.read_index(args.input)
             
             last_idx = MuseDataLoader.get_last_idx(model=args.model, embedding_type=args.type)
@@ -71,7 +71,7 @@ if __name__ == "__main__":
             
         elif args.func =='info_faiss':
             Logger.set_logger(log_path=log_path, file_name='info.log')
-            muse_faiss = MuseFAISS(d=args.dimension)
+            muse_faiss = MuseFaiss(d=args.dimension)
             muse_faiss.read_index(args.input)
             logging.info(f'''{muse_faiss.info()}''')
             

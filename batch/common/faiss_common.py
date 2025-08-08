@@ -1,7 +1,7 @@
 import faiss
 import numpy as np
 
-class MuseFAISS:
+class MuseFaiss:
     def __init__(self, d=512):
         self.quantizer = faiss.IndexHNSWFlat(d, 32)
         self.d = d

@@ -1,30 +1,25 @@
 from fastapi import FastAPI, Request
-from controllers import faiss_controller, health_controller
+from controllers import search_controller
 from common.oracle_common import OracleDB
-from common.faiss_common import MuseekFaiss
-from common.health_common import HealthCheck
-from config import API_NAME
-from error_handler import setup_exception_handlers
+from common.faiss_common import MuseFaiss
+from config import API_NAME, BASE_LOG_PATH
+from common.logger_common import Logger
 import logging
-
-logging.basicConfig(filename='/data1/museek-search/server/app/logs/service.log', format = '%(asctime)s:%(levelname)s:%(message)s', level=logging.INFO)
 
 app = FastAPI(title=f'''{API_NAME} API''')
 
-setup_exception_handlers(app)
+Logger.set_logger(log_path=BASE_LOG_PATH, file_name='service.log')
 
 @app.on_event("startup")
 async def startup():
-    try:
+    try:                
         logging.info("Server Start")
-        ivfpq_info, code = MuseekFaiss.ivfpq_info()              
-        if code == 200:            
-            logging.info(f"FAISS ON: {ivfpq_info['ntotal']}")
+        logging.info(MuseFaiss.get_all_info())
+        # if code == 200:            
+        #     logging.info(f"FAISS ON: {ivfpq_info['ntotal']}")
         OracleDB.initialize_pool()
     except Exception as e:        
-        logging.error(e)
-    finally:
-        HealthCheck.init(f'''{API_NAME}''')
+        logging.error(e)    
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -35,5 +30,4 @@ async def shutdown():
         logging.error(e)
 
 # 컨트롤러 라우터 등록
-app.include_router(faiss_controller.router)
-app.include_router(health_controller.router)
+app.include_router(search_controller.router)
