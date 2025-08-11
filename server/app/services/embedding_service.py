@@ -1,6 +1,7 @@
 import requests
 import numpy as np
 import json
+import logging
 
 class EmbeddingService:
     embedding_requests_info = {
@@ -27,10 +28,10 @@ class EmbeddingService:
     }
 
     @staticmethod
-    def get_vector(key: str, text: str) -> np.ndarray:
+    def get_vector(key: str, text: str) -> np.ndarray:        
         embedding_url = EmbeddingService.embedding_requests_info[EmbeddingService.embedding_info[key]['embedding_model']]['url']
         embedding_body = EmbeddingService.embedding_requests_info[EmbeddingService.embedding_info[key]['embedding_model']]['body']
-        embedding_body['text'] = text
+        embedding_body['text'] = text.strip()
         res = requests.post(url=embedding_url, json=embedding_body)
         res = json.loads(res.text)        
         vector = np.array([res['results']], dtype='float32')

@@ -28,14 +28,15 @@ class SearchDAO:
     @staticmethod
     def get_song_meta(disccommseq: int, trackno: str) -> Dict:
         result = OracleDB.execute_query(f"""
-            SELECT A.ARTIST, A.PLAYER, A.BAND_NAME, A.SONG_NAME, A.PLAY_TIME, B.DISC_NAME 
+            SELECT A.ARTIST, A.PLAYER, A.BAND_NAME, A.SONG_NAME, A.PLAY_TIME, B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO
             FROM MIBIS.MI_SONG_INFO A 
             JOIN MIBIS.MI_DISC_INFO B 
             ON A.DISC_COMM_SEQ = B.DISC_COMM_SEQ 
             WHERE A.DISC_COMM_SEQ={disccommseq} AND A.TRACK_NO='{trackno}'
         """)
         if result:
+            try:
+                result[0]['track_no'] = result[0]['track_no'].strip()
+            except:
+                pass
             return result[0]
-
-
-

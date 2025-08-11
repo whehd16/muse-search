@@ -24,6 +24,7 @@ class SearchService:
     async def search_text(text: str, timeout: float = 20.0) -> Dict[str, List]:
         
         llm_results = MuseLLM.get_request(text=text)
+        print(llm_results)
         # llm_results = {"artist":"", "title":"", "genre": "", "mood":[], "vibe":[], "year":"2024", "popular":True}        
         if not llm_results:
             return {}                
@@ -32,17 +33,15 @@ class SearchService:
         task_keys = []
         
         for key, values in json.loads(llm_results).items():
-            # llm_results = {"artist":"", "title":"", "genre": "", "mood":[], "year":"2024", "popular":True}                        
+            # llm_results = {"artist":"", "title":"", "genre": "", "mood":[], "year":"2024", "popular":True}     
+               
             if values and key in SearchService._index_mapping:            
                 for value in values:
                     job = SearchService._search_single_index(key=key, query_text=value, index_file_name=SearchService._index_mapping[key])
                     search_coroutines.append(job)
                     task_keys.append(key)        
         
-        # 모든 검색 동시 실행 with 예외 처리
         try:
-            # gather가 모든 코루틴을 동시에 시작하고 완료 대기
-            # 전체 작업에 대한 타임아웃 설정
             results_list = await asyncio.wait_for(
                 asyncio.gather(*search_coroutines, return_exceptions=True),
                 timeout=timeout
@@ -95,10 +94,11 @@ class SearchService:
     @staticmethod
     def _faiss_search(key: str, query_text: Any, index_file_name: str) -> List:
         #artist, title, vibe
-        try:            
-            print('_faiss_search',key, query_text, index_file_name)
-            query_vector = EmbeddingService.get_vector(key=key, text=query_text)                                                      
-            D, I = FaissService.search(key=key, query_vector=query_vector, k=100)
+        try:                        
+            query_vector = EmbeddingService.get_vector(key=key, text=query_text)  
+            
+            D, I = FaissService.search(key=key, query_vector=query_vector, k=100)            
+            print('------', key, query_text, I[0])          
             
             if D is None or I is None:
                 return []
@@ -108,10 +108,10 @@ class SearchService:
 
             for i, (idx, dist) in enumerate(zip(I[0], D[0])):
                 if idx != -1:  # FAISS에서 -1은 결과 없음을 의미
-                    song_info = SearchDAO.get_song_info(key=key, idx=idx+1)                    
+                    song_info = SearchDAO.get_song_info(key=key, idx=idx)                    
                     if song_info:
                         disccommseq, trackno = song_info['disccommseq'], song_info['trackno']
-                        song_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)
+                        song_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)                        
                         results.append(song_meta)
             
             return results
