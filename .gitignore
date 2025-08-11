@@ -199,3 +199,5 @@ server/logs/*
 #*.index
 *.index
 
+#test
+test.py
