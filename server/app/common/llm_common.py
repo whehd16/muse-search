@@ -44,12 +44,12 @@ class MuseLLM:
 
         규칙:
         - artist: 아티스트명 배열
-        - song_name: 곡명
+        - title: 곡명 배열
         - genre: 장르 배열  
         - mood: 분위기 배열
         - year: 연도 범위
         - context: 상황/맥락 배열
-        - clap_texts: CLAP 임베딩용 영어 텍스트 배열 (genre, mood, context 기반으로 생성)
+        - vibe: CLAP 임베딩용 영어 텍스트 배열 (genre, mood, context 기반으로 생성)
 
         CLAP 텍스트 생성 규칙:
         - mood/genre를 구체적인 음악 설명으로 변환
@@ -60,45 +60,45 @@ class MuseLLM:
         1. "뉴진스 같은 Y2K 느낌 노래"
         → {
         "artist": ["뉴진스", "NewJeans"],
-        "song_name": "",
+        "title": [],
         "genre": ["pop"],
         "mood": ["nostalgic", "retro"],
         "year": [2000, 2010],
         "context": ["y2k"],
-        "clap_texts": ["nostalgic pop music", "retro style song", "y2k pop track", "early 2000s pop music", "teen pop ballad"]
+        "vibe": ["nostalgic pop music", "retro style song", "y2k pop track", "early 2000s pop music", "teen pop ballad"]
         }
 
         2. "비 오는 날 듣기 좋은 잔잔한 노래"
         → {
         "artist": [],
-        "song_name": "",
+        "title": [],
         "genre": ["ballad"],
         "mood": ["calm", "melancholy"],
         "year": [],
         "context": ["rain", "relaxing"],
-        "clap_texts": ["calm ballad", "melancholic song", "rainy day music", "soft acoustic music", "peaceful slow song"]
+        "vibe": ["calm ballad", "melancholic song", "rainy day music", "soft acoustic music", "peaceful slow song"]
         }
 
         3. "운동할 때 신나는 댄스 음악"
         → {
         "artist": [],
-        "song_name": "",
+        "title": [],
         "genre": ["dance"],
         "mood": ["energetic", "exciting"],
         "year": [],
         "context": ["workout"],
-        "clap_texts": ["energetic dance music", "upbeat workout song", "high energy electronic music", "fast tempo dance track", "gym motivation music"]
+        "vibe": ["energetic dance music", "upbeat workout song", "high energy electronic music", "fast tempo dance track", "gym motivation music"]
         }
 
         4. ""(비어있는 경우)
         → {
         "artist": [],
-        "song_name": "",
+        "title": [],
         "genre": [],
         "mood": [],
         "year": [],
         "context": [],
-        "clap_texts": []
+        "vibe": []
         }
 
         반드시 JSON 형식으로만 응답하세요.
