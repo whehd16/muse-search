@@ -24,20 +24,20 @@ class MuseLLM:
     #     1. melancholic classical piano piece
     #     2. hopeful orchestral track with soft strings
     #     3. emotional neoclassical piece with a gentle tone
-    _gemma_prompt = f'''
-    사용자의 음악 검색을 위한 텍스트를 줄게. 1단계, 2단계에 맞게 작업을 해서 문자열 하나만 반환해. 
-        1단계: 주어진 입력 텍스트를 영어로 번역해.
-        2단계: 1단계에서 영어로 번역된 문장을 CLAP(Contrastive Language-Audio Pre-training)의 텍스트 임베딩을 위해서 문장 내용을 분석해서 음악적 특성을 추출해줘.
-        3단계:
-        ex)
-            “melancholic classical piano piece”
-            “ambient electronic music for studying”
-            “jazzy hip hop beat with soft drums and vinyl crackle”
-        아래 문장을 기반으로, CLAP 모델이 이해하기 쉬운 짧은 영어 음악 묘사를 1개로 다양하게 생성해줘.
+    # _gemma_prompt = f'''
+    # 사용자의 음악 검색을 위한 텍스트를 줄게. 1단계, 2단계에 맞게 작업을 해서 문자열 하나만 반환해. 
+    #     1단계: 주어진 입력 텍스트를 영어로 번역해.
+    #     2단계: 1단계에서 영어로 번역된 문장을 CLAP(Contrastive Language-Audio Pre-training)의 텍스트 임베딩을 위해서 문장 내용을 분석해서 음악적 특성을 추출해줘.
+    #     3단계:
+    #     ex)
+    #         “melancholic classical piano piece”
+    #         “ambient electronic music for studying”
+    #         “jazzy hip hop beat with soft drums and vinyl crackle”
+    #     아래 문장을 기반으로, CLAP 모델이 이해하기 쉬운 짧은 영어 음악 묘사를 1개로 다양하게 생성해줘.
         
-        최종적으로는 무조건 하나의 문장만 반환해야 해.
-        입력 텍스트:\n
-    '''
+    #     최종적으로는 무조건 하나의 문장만 반환해야 해.
+    #     입력 텍스트:\n
+    # '''
     
     _system_prompt = """
         다음 음악 검색 쿼리를 JSON으로 파싱하고, CLAP 임베딩용 텍스트도 생성해주세요.
@@ -47,14 +47,20 @@ class MuseLLM:
         - title: 곡명 배열
         - genre: 장르 배열  
         - mood: 분위기 배열
+        - popular: 유명함 배열 (맥락상 popular 정렬이 필요한지)
         - year: 연도 범위
         - context: 상황/맥락 배열
         - vibe: CLAP 임베딩용 영어 텍스트 배열 (genre, mood, context 기반으로 생성)
+         *단, 직접적으로 언급된 항목만 채울것
+        * 예시) "빅뱅 붉은노을" → {
+            "artist": ["빅뱅", "BIGBANG"],
+            "title" : ["붉은노을"]
+        }
 
         CLAP 텍스트 생성 규칙:
         - mood/genre를 구체적인 음악 설명으로 변환
         - 상황/맥락을 음악적 특성으로 표현
-        - 3-5개의 다양한 표현 생성
+        - 3개의 다양한 표현 생성
 
         예시:
         1. "뉴진스 같은 Y2K 느낌 노래"
@@ -63,17 +69,19 @@ class MuseLLM:
         "title": [],
         "genre": ["pop"],
         "mood": ["nostalgic", "retro"],
+        "popular": [False],
         "year": [2000, 2010],
         "context": ["y2k"],
         "vibe": ["nostalgic pop music", "retro style song", "y2k pop track", "early 2000s pop music", "teen pop ballad"]
         }
 
-        2. "비 오는 날 듣기 좋은 잔잔한 노래"
+        2. "비 오는 날 듣기 좋은 잔잔한 유명한 노래"
         → {
         "artist": [],
         "title": [],
         "genre": ["ballad"],
         "mood": ["calm", "melancholy"],
+        "popular": [True],
         "year": [],
         "context": ["rain", "relaxing"],
         "vibe": ["calm ballad", "melancholic song", "rainy day music", "soft acoustic music", "peaceful slow song"]
@@ -85,6 +93,7 @@ class MuseLLM:
         "title": [],
         "genre": ["dance"],
         "mood": ["energetic", "exciting"],
+        "popular": [False],
         "year": [],
         "context": ["workout"],
         "vibe": ["energetic dance music", "upbeat workout song", "high energy electronic music", "fast tempo dance track", "gym motivation music"]
@@ -96,6 +105,7 @@ class MuseLLM:
         "title": [],
         "genre": [],
         "mood": [],
+        "popular": [False],
         "year": [],
         "context": [],
         "vibe": []

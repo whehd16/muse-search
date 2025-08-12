@@ -8,6 +8,7 @@ from common.llm_common import MuseLLM
 from common.faiss_common import MuseFaiss
 from services.faiss_service import FaissService
 from daos.search_dao import SearchDAO
+from collections import defaultdict
 import time
 import json
 
@@ -21,18 +22,22 @@ class SearchService:
         }
 
     @staticmethod
-    async def search_text(text: str, timeout: float = 20.0) -> Dict[str, List]:
+    async def search_text(text: str, timeout: float = 30.0) -> Dict[str, List]:
         
         llm_results = MuseLLM.get_request(text=text)
-        print(llm_results)
+        llm_results = json.loads(llm_results)
         # llm_results = {"artist":"", "title":"", "genre": "", "mood":[], "vibe":[], "year":"2024", "popular":True}        
         if not llm_results:
-            return {}                
+            return {
+                'year_list': [],
+                'popular': False,
+                'results': []
+            }                
         
         search_coroutines = []
         task_keys = []
         
-        for key, values in json.loads(llm_results).items():
+        for key, values in llm_results.items():
             # llm_results = {"artist":"", "title":"", "genre": "", "mood":[], "year":"2024", "popular":True}     
                
             if values and key in SearchService._index_mapping:            
@@ -50,26 +55,47 @@ class SearchService:
             logging.error(f"Search operation timed out after {timeout}s")
             return {key: [] for key in task_keys}
         
-        return results_list
-        # 결과 처리
-        results = {}
-        for i, result in enumerate(results_list):
-            key = task_keys[i]
-            
-            if isinstance(result, asyncio.TimeoutError):
-                logging.warning(f"Search timeout for {key}")
-                results[key] = []
-            elif isinstance(result, Exception):
-                logging.error(f"Search error for {key}: {result}")
-                results[key] = []
-            else:
-                results[key] = result
-                logging.info(f"Search completed for {key}: {len(result)} results")
-        
-        return results
+
+        # print(results_list)
+        # for d in results_list:
+        #     for k, v in d.items():
+        #         logging.info(f'''{k}, {v}''')
+
+        merged = defaultdict(lambda: None)
+
+        for group in results_list:
+            for key, song_info in group.items():
+                if merged[key] is None:
+                    # 처음 등장하는 곡이면 복사
+                    merged[key] = song_info.copy()
+                    merged[key]["index_name_set"] = set([merged[key]["index_name"]])
+                else:                                        
+                    merged[key]["count"] += 1
+                    if song_info.get("index_name") in merged[key]["index_name_set"]:
+                        merged[key]["dis"] /= 2
+                    else:
+                        merged[key]["dis"] *= song_info.get("dis", 0.0)
+                        merged[key]["index_name_set"].add(song_info.get("index_name"))
+
+
+        # dict → list 변환
+        merged_list = list(merged.values())
+
+        # count 기준으로 내림차순 정렬
+        merged_list.sort(key=lambda x: x["dis"], reverse=False)
+
+        # for item in merged_list[:100]:
+        #     # logging.info(f'''{item["dis"]}, {item["count"]}, {item["artist"]}, {item["song_name"]}, {item['disc_comm_seq']} / {item['track_no']})''')
+        #     print(f'''{item["dis"]}, {item["count"]}, {item["artist"]}, {item["song_name"]}, {item['disc_comm_seq']} / {item['track_no']})''')
+        total_results = {
+            'year_list': llm_results['year'],
+            'popular': llm_results['popular'][0] if llm_results['popular'] else False,
+            'results': merged_list
+        }
+        return total_results
     
     @staticmethod
-    async def _search_single_index(key: str, query_text: str, index_file_name: str, timeout: float = 5.0) -> List:
+    async def _search_single_index(key: str, query_text: str, index_file_name: str, timeout: float = 10.0) -> List:
         try:
             # 공유 스레드 풀 사용 (교착상태 방지)
             loop = asyncio.get_event_loop()
@@ -92,27 +118,31 @@ class SearchService:
             return []
     
     @staticmethod
-    def _faiss_search(key: str, query_text: Any, index_file_name: str) -> List:
+    def _faiss_search(key: str, query_text: Any, index_file_name: str) -> Dict:
         #artist, title, vibe
         try:                        
-            query_vector = EmbeddingService.get_vector(key=key, text=query_text)  
-            
-            D, I = FaissService.search(key=key, query_vector=query_vector, k=100)            
-            print('------', key, query_text, I[0])          
+            query_vector = EmbeddingService.get_vector(key=key, text=query_text.lower())              
+            if key not in ['artist', 'title']:
+                return {}
+
+            D, I = FaissService.search(key=key, query_vector=query_vector, k= 2000 if key == 'title' else 700)                            
             
             if D is None or I is None:
                 return []
             
             # 검색 결과 반환
-            results = []
+            results = {}
 
             for i, (idx, dist) in enumerate(zip(I[0], D[0])):
                 if idx != -1:  # FAISS에서 -1은 결과 없음을 의미
                     song_info = SearchDAO.get_song_info(key=key, idx=idx)                    
                     if song_info:
                         disccommseq, trackno = song_info['disccommseq'], song_info['trackno']
-                        song_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)                        
-                        results.append(song_meta)
+                        song_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)
+                        song_meta['count'] = 1   
+                        song_meta['dis'] = float(dist)
+                        song_meta['index_name'] = key
+                        results[f'''{song_meta['disc_comm_seq']}_{song_meta['track_no']}'''] = song_meta
             
             return results
             

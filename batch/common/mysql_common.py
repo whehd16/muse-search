@@ -1,4 +1,4 @@
-from server.app.config import DATABASE_CONFIG
+from config import DATABASE_CONFIG
 import pymysql
 import logging
 from pymysqlpool import ConnectionPool

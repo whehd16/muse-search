@@ -12,10 +12,12 @@ router = APIRouter(
 
 class TextRequest(BaseModel):
     text: str
+    mood: list
 
 @router.post("/text")
 async def search_song(input_data: TextRequest):    
     text = input_data.text    
+    mood = input_data.mood    
     result = await SearchService.search_text(text=text)
     # FaissService.search_song(text)
     return result

@@ -81,6 +81,7 @@ class MuseFaiss:
     def get_all_info() -> Dict:
         """모든 인덱스 정보 반환"""
         try:
+            
             return {
                 index_type: MuseFaiss.get_info(index_type) 
                 for index_type in MuseFaiss.indices.keys()
