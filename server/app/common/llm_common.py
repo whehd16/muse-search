@@ -2,42 +2,7 @@ import requests
 import copy
 
 class MuseLLM:
-    _gemma_url = "http://ai-int.mbc.co.kr:8000/v1/chat/completions"
-    # "genre: pop, mood: energetic, instruments: guitar drums, tempo: fast"
-
-    # 예시)
-    #     장르 키워드 + 감정 키워드 + 악기/사운드 키워드 조합
-    #     "pop music in energentic vibe with fast guitar and drums tempo
-
-
-    # 사용자의 음악 검색을 위한 텍스트를 줄게. 1단계, 2단계에 맞게 작업을 해서 문자열 하나만 반환해. 
-    #     1단계: 주어진 입력 텍스트를 영어로 번역해.
-    #     2단계: 1단계에서 영어로 번역된 문장을 CLAP(Contrastive Language-Audio Pre-training)의 텍스트 임베딩을 위해서 문장 내용을 분석해서 음악적 특성을 추출해줘.
-    #     3단계:
-    #     ex)
-    #         “melancholic classical piano piece”
-    #         “ambient electronic music for studying”
-    #         “jazzy hip hop beat with soft drums and vinyl crackle”
-    #     아래 문장을 기반으로, CLAP 모델이 이해하기 쉬운 짧은 영어 음악 묘사를 3개로 다양하게 생성해줘.
-    # 문장: “쓸쓸하면서도 희망적인 느낌의 클래식 곡 추천”
-    # → Output style: 
-    #     1. melancholic classical piano piece
-    #     2. hopeful orchestral track with soft strings
-    #     3. emotional neoclassical piece with a gentle tone
-    # _gemma_prompt = f'''
-    # 사용자의 음악 검색을 위한 텍스트를 줄게. 1단계, 2단계에 맞게 작업을 해서 문자열 하나만 반환해. 
-    #     1단계: 주어진 입력 텍스트를 영어로 번역해.
-    #     2단계: 1단계에서 영어로 번역된 문장을 CLAP(Contrastive Language-Audio Pre-training)의 텍스트 임베딩을 위해서 문장 내용을 분석해서 음악적 특성을 추출해줘.
-    #     3단계:
-    #     ex)
-    #         “melancholic classical piano piece”
-    #         “ambient electronic music for studying”
-    #         “jazzy hip hop beat with soft drums and vinyl crackle”
-    #     아래 문장을 기반으로, CLAP 모델이 이해하기 쉬운 짧은 영어 음악 묘사를 1개로 다양하게 생성해줘.
-        
-    #     최종적으로는 무조건 하나의 문장만 반환해야 해.
-    #     입력 텍스트:\n
-    # '''
+    _gemma_url = "http://ai-int.mbc.co.kr:8000/v1/chat/completions" 
     
     _system_prompt = """
         다음 음악 검색 쿼리를 JSON으로 파싱하고, CLAP 임베딩용 텍스트도 생성해주세요.
@@ -133,6 +98,52 @@ class MuseLLM:
     }
 
     @staticmethod
+    def make_system_reason_prompt(text, total_results, rank=5):
+        return f"""
+        아래는 사용자의 음악 검색 요청에 대한 결과입니다. 
+        자연스럽고 친근한 응답으로 음악을 추천해주세요.
+
+        사용자 요청: {text}
+
+        검색 결과:
+        - 찾은 노래 수: {len(total_results['results'])}개
+        - 인기도 필터: {'인기곡 위주' if total_results['popular'] else 
+        '전체 범위'}
+        - 연도 필터: {', '.join(total_results['year_list']) if 
+        total_results['year_list'] else '전체 기간'}
+
+        상위 추천곡:
+        {MuseLLM.format_songs(total_results['results'][:rank])}
+
+        요청사항:
+        1. 사용자의 요청과 가장 관련성이 높은 선별하여 추천(주어진 곡대로 전부 줄 것, 단 최대 5개)
+        2. 각 곡에 대해 왜 추천하는지 간단한 설명 추가        
+        3. 자연스러운 대화체로 응답
+        4. response 값에 리스트("[,,,,]")안에 이유(description)만 담아서 반환할 것.(파싱해서 써야하기 때문에 리스트 반환 필수,[이유1, 이유2, 이유3, ...]) 
+    """
+
+    @staticmethod
+    def make_system_reason_payload(prompt):
+        return {
+        "model": "google/gemma-3-27b-it",
+        "messages": [
+            {
+                "role": "system",
+                "content": prompt
+            },
+
+            {
+                "role": "user",
+                "content": "쿼리"
+            }
+        ],            
+        "max_tokens": 500,
+        "temperature": 0.1,
+        "response_format": {"type": "json_object"}  # JSON 응답 강제 (지원되면)
+    }
+
+
+    @staticmethod
     def get_request(text):          
         MuseLLM._gemma_payload['messages'][1]['content'] = f'''쿼리: {text}'''
 
@@ -147,4 +158,20 @@ class MuseLLM:
         else:
             print("오류:", response.status_code, response.text)
             return None
+        
+    @staticmethod
+    def get_reason(text, total_results, rank=5):
+        response = requests.post(MuseLLM._gemma_url, json= MuseLLM.make_system_reason_payload(prompt=MuseLLM. make_system_reason_prompt(text=text, total_results=total_results, rank=rank)))
+        # 응답 파싱
+        if response.status_code == 200:
+            data = response.json()            
+            return data['choices'][0]['message']['content']            
+        else:
+            print("오류:", response.status_code, response.text)
+            return None
 
+    @staticmethod
+    def format_songs(songs):
+      return '\n'.join([f"- {s['artist']} - {s['song_name']} (매칭도: {1-s['dis']:.2f})"
+          for s in songs
+      ])

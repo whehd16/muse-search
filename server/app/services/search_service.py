@@ -20,6 +20,7 @@ class SearchService:
             "title": "muse_title",             
             "vibe": "muse_vibe"
         }
+    _rank_num = 5
 
     @staticmethod
     async def search_text(text: str, timeout: float = 30.0) -> Dict[str, List]:
@@ -77,7 +78,6 @@ class SearchService:
                         merged[key]["dis"] *= song_info.get("dis", 0.0)
                         merged[key]["index_name_set"].add(song_info.get("index_name"))
 
-
         # dict → list 변환
         merged_list = list(merged.values())
 
@@ -91,11 +91,18 @@ class SearchService:
             'year_list': llm_results['year'],
             'popular': llm_results['popular'][0] if llm_results['popular'] else False,
             'results': merged_list
-        }
+        }        
+        
+        select_reasons = json.loads(MuseLLM.get_reason(text=text, total_results=total_results, rank=SearchService._rank_num))        
+        select_reasons = select_reasons['response'] if 'response' in select_reasons else []
+        
+        for rank in range(SearchService._rank_num):
+            total_results['results'][rank]['select_reason'] = select_reasons[rank]
+
         return total_results
     
     @staticmethod
-    async def _search_single_index(key: str, query_text: str, index_file_name: str, timeout: float = 10.0) -> List:
+    async def _search_single_index(key: str, query_text: str, index_file_name: str, timeout: float = 20.0) -> List:
         try:
             # 공유 스레드 풀 사용 (교착상태 방지)
             loop = asyncio.get_event_loop()
