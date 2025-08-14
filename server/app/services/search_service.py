@@ -21,12 +21,19 @@ class SearchService:
             "vibe": "muse_vibe"
         }
     _rank_num = 5
+    _k_mapping = {
+        "title" : 50000,
+        "artist": 2000,
+        "vibe": 10000
+    }
+    _batch_size = 1000
 
     @staticmethod
     async def search_text(text: str, timeout: float = 30.0) -> Dict[str, List]:
         
         llm_results = MuseLLM.get_request(text=text)
         llm_results = json.loads(llm_results)
+        print(llm_results)
         # llm_results = {"artist":"", "title":"", "genre": "", "mood":[], "vibe":[], "year":"2024", "popular":True}        
         if not llm_results:
             return {
@@ -56,7 +63,6 @@ class SearchService:
             logging.error(f"Search operation timed out after {timeout}s")
             return {key: [] for key in task_keys}
         
-
         # print(results_list)
         # for d in results_list:
         #     for k, v in d.items():
@@ -93,11 +99,11 @@ class SearchService:
             'results': merged_list
         }        
         
-        select_reasons = json.loads(MuseLLM.get_reason(text=text, total_results=total_results, rank=SearchService._rank_num))        
-        select_reasons = select_reasons['response'] if 'response' in select_reasons else []
+        # select_reasons = json.loads(MuseLLM.get_reason(text=text, total_results=total_results, rank=SearchService._rank_num))        
+        # select_reasons = select_reasons['response'] if 'response' in select_reasons else []
         
-        for rank in range(SearchService._rank_num):
-            total_results['results'][rank]['select_reason'] = select_reasons[rank]
+        # for rank in range(SearchService._rank_num):
+        #     total_results['results'][rank]['select_reason'] = select_reasons[rank]
 
         return total_results
     
@@ -128,28 +134,75 @@ class SearchService:
     def _faiss_search(key: str, query_text: Any, index_file_name: str) -> Dict:
         #artist, title, vibe
         try:                        
-            query_vector = EmbeddingService.get_vector(key=key, text=query_text.lower())              
+            query_vector = EmbeddingService.get_vector(key=key, text=query_text.lower().replace(' ',''))              
             if key not in ['artist', 'title']:
                 return {}
 
-            D, I = FaissService.search(key=key, query_vector=query_vector, k= 2000 if key == 'title' else 700)                            
+            D, I = FaissService.search(key=key, query_vector=query_vector, k=SearchService._k_mapping[key])                            
             
             if D is None or I is None:
                 return []
             
             # 검색 결과 반환
             results = {}
+            
+            # ##
+            # 묶음(배치) 검색
+            batched_D = []
+            batched_I = []
+            
+            for i in range(0, len(I[0]), SearchService._batch_size):
+                batched_I.append([ int(I[0][idx])+1 for idx in range(i, min(len(I[0]), i+SearchService._batch_size))])                                
+                batched_D.append([ float(D[0][idx]) for idx in range(i, min(len(I[0]), i+SearchService._batch_size))])                            
+            
+            for i, (batch_idx_list, batch_dist_list) in enumerate(zip(batched_I, batched_D)):                   
+                batched_dict = { # idx: dis
+                    batch_idx_list[j]: batch_dist_list[j]
+                    for j in range(len(batch_idx_list))
+                }                
+    
+                song_info_dict = SearchDAO.get_song_batch_info(key=key, idx_list=batch_idx_list)
+                # >> song_info_dict=:{ idx:{'disccommseq': "", 'trackno':""}}
 
-            for i, (idx, dist) in enumerate(zip(I[0], D[0])):
-                if idx != -1:  # FAISS에서 -1은 결과 없음을 의미
-                    song_info = SearchDAO.get_song_info(key=key, idx=idx)                    
-                    if song_info:
-                        disccommseq, trackno = song_info['disccommseq'], song_info['trackno']
-                        song_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)
-                        song_meta['count'] = 1   
-                        song_meta['dis'] = float(dist)
+                if song_info_dict:
+                    disc_track_pairs = [(song_info['disccommseq'], song_info['trackno']) for _, song_info in song_info_dict.items()]
+                    song_info_idx = { 
+                        f'''{song_info['disccommseq']}_{song_info['trackno']}''': idx 
+                        for idx, song_info in song_info_dict.items()
+                    }
+                    
+                    song_meta_dict = SearchDAO.get_song_batch_meta(disc_track_pairs=disc_track_pairs)                    
+                    # print(f'''FIRST {query_text}, {song_meta_dict}''')
+                    for song_key, song_meta in song_meta_dict.items():                        
+                        song_meta['count'] = 1
+                        idx = song_info_idx[song_key]                                                
+                        song_meta['dis'] = float(batched_dict[idx])
                         song_meta['index_name'] = key
-                        results[f'''{song_meta['disc_comm_seq']}_{song_meta['track_no']}'''] = song_meta
+                        results[f'''{song_key}'''] = song_meta                
+                
+                # if song_info_dict:
+                #     for idx, song_info in song_info_dict.items():
+                #         disccommseq, trackno = song_info['disccommseq'], song_info['trackno']
+                #         song_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)                        
+                #         print(f'''SECOND {query_text}, {idx}, {song_meta}''')
+                #         song_meta['count'] = 1   
+                #         song_meta['dis'] = float(batched_dict[idx])
+                #         song_meta['index_name'] = key
+                #         results[f'''{song_meta['disc_comm_seq']}_{song_meta['track_no']}'''] = song_meta
+
+            # ##
+
+            # # 개별검색
+            # for i, (idx, dist) in enumerate(zip(I[0], D[0])):
+            #     if idx != -1:  # FAISS에서 -1은 결과 없음을 의미
+            #         song_info = SearchDAO.get_song_info(key=key, idx=idx)                    
+            #         if song_info:
+            #             disccommseq, trackno = song_info['disccommseq'], song_info['trackno']
+            #             song_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)
+            #             song_meta['count'] = 1   
+            #             song_meta['dis'] = float(dist)
+            #             song_meta['index_name'] = key
+            #             results[f'''{song_meta['disc_comm_seq']}_{song_meta['track_no']}'''] = song_meta
             
             return results
             

@@ -43,7 +43,7 @@ class MuseLLM:
         2. "비 오는 날 듣기 좋은 잔잔한 유명한 노래"
         → {
         "artist": [],
-        "title": [],
+        "title": ["비 오는 날 듣기 좋은 잔잔한 유명한 노래"],
         "genre": ["ballad"],
         "mood": ["calm", "melancholy"],
         "popular": [True],
@@ -55,7 +55,7 @@ class MuseLLM:
         3. "운동할 때 신나는 댄스 음악"
         → {
         "artist": [],
-        "title": [],
+        "title": ["운동할 때 신나는 댄스 음악"],
         "genre": ["dance"],
         "mood": ["energetic", "exciting"],
         "popular": [False],
@@ -76,6 +76,8 @@ class MuseLLM:
         "vibe": []
         }
 
+        5. artist, title 판단이 어려운 경우 (artist, title 리스트에 그냥 넣을 것) 
+        
         반드시 JSON 형식으로만 응답하세요.
     """
 

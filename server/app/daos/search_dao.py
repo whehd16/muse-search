@@ -11,6 +11,22 @@ class SearchDAO:
     }
     
     @staticmethod
+    def get_song_batch_info(key: str, idx_list: List):
+        batch_info = {}
+        results, code = Database.execute_query(f"""
+            SELECT idx, disccommseq, trackno
+            FROM {SearchDAO._table_mapping[key]}
+            WHERE idx in ({','.join(list(map(str, idx_list)))})
+        """, fetchall=True)
+        if code == 200:
+            for result in results:
+                batch_info[result[0]] = {
+                    'disccommseq': result[1],
+                    'trackno': result[2]
+                }
+        return batch_info
+
+    @staticmethod
     def get_song_info(key: str, idx: int) -> Dict:
         result, code = Database.execute_query(f"""
             SELECT disccommseq, trackno
@@ -24,6 +40,44 @@ class SearchDAO:
             }
         else:
             return {}
+
+    @staticmethod
+    def get_song_batch_meta(disc_track_pairs: List[tuple]):
+
+        if not disc_track_pairs:
+            return {}
+
+        conditions = []
+        
+        for disccommseq, trackno in disc_track_pairs:
+            conditions.append(f"(A.DISC_COMM_SEQ={disccommseq} AND A.TRACK_NO='{trackno}')")
+        
+        where_clause =" OR ".join(conditions)
+        results = OracleDB.execute_query(f"""
+            SELECT A.ARTIST, A.PLAYER, A.BAND_NAME, A.SONG_NAME, A.PLAY_TIME, 
+            B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO, MASTERING_YEAR
+            FROM MIBIS.MI_SONG_INFO A 
+            JOIN MIBIS.MI_DISC_INFO B 
+            ON A.DISC_COMM_SEQ = B.DISC_COMM_SEQ 
+            WHERE {where_clause}
+        """)
+        
+        if not results:
+            return {}
+        
+        song_meta_dict = {}
+        for row in results:
+            try:
+                row['track_no'] = row['track_no'].strip()
+            except:
+                pass
+            
+            key = f'''{row['disc_comm_seq']}_{row['track_no']}'''
+            song_meta_dict[key] = row
+        
+        return song_meta_dict
+        
+        
 
     @staticmethod
     def get_song_meta(disccommseq: int, trackno: str) -> Dict:
