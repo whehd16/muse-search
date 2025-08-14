@@ -55,7 +55,7 @@ class SearchDAO:
         where_clause =" OR ".join(conditions)
         results = OracleDB.execute_query(f"""
             SELECT A.ARTIST, A.PLAYER, A.BAND_NAME, A.SONG_NAME, A.PLAY_TIME, 
-            B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO, MASTERING_YEAR
+            B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO, MASTERING_YEAR, HIT_YEAR
             FROM MIBIS.MI_SONG_INFO A 
             JOIN MIBIS.MI_DISC_INFO B 
             ON A.DISC_COMM_SEQ = B.DISC_COMM_SEQ 
