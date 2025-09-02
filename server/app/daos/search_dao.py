@@ -7,12 +7,13 @@ class SearchDAO:
     _table_mapping ={
         'artist': 'tb_embedding_bgem3_artist_h',
         'title': 'tb_embedding_bgem3_song_name_h',
-        'vibe' : 'tb_embedding_clap_h'
+        'vibe' : 'tb_embedding_clap_h',
+        'lyrics': 'tb_embedding_bgem3_lyrics_slide_h'
     }
     
     @staticmethod
     def get_song_batch_info(key: str, idx_list: List):
-        batch_info = {}
+        batch_info = {}        
         results, code = Database.execute_query(f"""
             SELECT idx, disccommseq, trackno
             FROM {SearchDAO._table_mapping[key]}
@@ -55,7 +56,7 @@ class SearchDAO:
         where_clause =" OR ".join(conditions)
         results = OracleDB.execute_query(f"""
             SELECT A.ARTIST, A.PLAYER, A.BAND_NAME, A.SONG_NAME, A.PLAY_TIME, 
-            B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO, MASTERING_YEAR, HIT_YEAR
+            B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO, MASTERING_YEAR, HIT_YEAR, B.DISC_GENRE_TXT
             FROM MIBIS.MI_SONG_INFO A 
             JOIN MIBIS.MI_DISC_INFO B 
             ON A.DISC_COMM_SEQ = B.DISC_COMM_SEQ 
@@ -82,7 +83,7 @@ class SearchDAO:
     @staticmethod
     def get_song_meta(disccommseq: int, trackno: str) -> Dict:
         result = OracleDB.execute_query(f"""
-            SELECT A.ARTIST, A.PLAYER, A.BAND_NAME, A.SONG_NAME, A.PLAY_TIME, B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO, MASTERING_YEAR
+            SELECT A.ARTIST, A.PLAYER, A.BAND_NAME, A.SONG_NAME, A.PLAY_TIME, B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO, MASTERING_YEAR, HIT_YEAR, B.DISC_GENRE_TXT
             FROM MIBIS.MI_SONG_INFO A 
             JOIN MIBIS.MI_DISC_INFO B 
             ON A.DISC_COMM_SEQ = B.DISC_COMM_SEQ 

@@ -7,16 +7,19 @@ import numpy as np
 
 class MuseDataLoader:
     _selected_mod = [1, 21, 41, 61, 81]
-    _table_name = 'muse.tb_embedding_{0}_{1}_h'    
+    # _table_name = 'muse.tb_embedding_{0}_{1}_h'    
+    _table_name = 'muse.tb_embedding_{0}_h'    
     _mod_select_window_size = 5000
     _columns = {
         'clap_song': 'embedding_result',
         'bgem3_artist': 'artist_embedding',
-        'bgem3_song_name': 'song_name_embedding'
+        'bgem3_song_name': 'song_name_embedding',
+        'bgem3_lyrics_slide': 'embedding_result'
     }
 
     @staticmethod
     def get_last_idx(model, embedding_type):
+        # return 12188072
         try:
             result, code = Database.execute_query(
                 f'''
@@ -54,12 +57,9 @@ class MuseDataLoader:
                     )
                     if code == 200:
                         logging.info(f'''MuseDataLoader.get_train_vectors: load vectors in [{','.join(list(map(str, MuseDataLoader._selected_mod)))}] in range ({i} ~ {min(last_idx, i+MuseDataLoader._mod_select_window_size)})''')
-                        for res in results:                            
-                            # print(np.load(io.BytesIO(res[1]), allow_pickle=True))
-                            # print(torch.load(io.BytesIO(res[1]), map_location='cpu', weights_only=False))
-                            train_vectors.append(np.load(io.BytesIO(res[1]), allow_pickle=True)[0])                        
-                    else:
-                        print(results)
+                        for res in results:    
+                            train_vectors.append(np.atleast_2d(np.load(io.BytesIO(res[1]), allow_pickle=True))[0])                        
+                    else:                        
                         logging.error("MuseDataLoader.get_train_vetctors: FAILED TO GET TRAIN VECTORS")
             return train_vectors
         except Exception as e:
@@ -80,7 +80,7 @@ class MuseDataLoader:
 
             if code == 200:
                 for res in results:                                                
-                    add_vectors.append(np.load(io.BytesIO(res[1]), allow_pickle=True)[0])                        
+                    add_vectors.append(np.atleast_2d(np.load(io.BytesIO(res[1]), allow_pickle=True))[0])                        
             return add_vectors
         except Exception as e:
             logging.error(e)

@@ -19,8 +19,9 @@ class TextRequest(BaseModel):
 async def search_song(input_data: TextRequest):    
     text = input_data.text    
     mood = input_data.mood    
+    print(text, mood)
     start = time.time()
-    result = await SearchService.search_text(text=text)
+    result = await SearchService.search_text(text=text, mood=mood)
     print('소요시간:',time.time()-start)
     # FaissService.search_song(text)
     return result

@@ -48,10 +48,13 @@ if __name__ == "__main__":
             train_vectors = MuseDataLoader.get_train_vectors(model=args.model, embedding_type=args.type)
 
             if train_vectors:
-                muse_faiss = MuseFaiss(d=args.dimension)                
+                muse_faiss = MuseFaiss(d=args.dimension)
                 muse_faiss.set_index(nlist=int(math.sqrt(len(train_vectors))))
+                logging.info(f'''벡터 학습 중...''')
                 muse_faiss.train(vectors=np.array(train_vectors, dtype='float32'))
+                logging.info(f'''벡터 학습 완료''')
                 muse_faiss.write_index(args.output)                
+                logging.info(f'''벡터 cluster 생성 완료''')
 
         elif args.func == 'add_faiss':
             Logger.set_logger(log_path=log_path, file_name=f'''add_{args.model}.log''')            

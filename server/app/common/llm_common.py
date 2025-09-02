@@ -1,84 +1,93 @@
 import requests
 import copy
+import logging
+import json
 
 class MuseLLM:
     _gemma_url = "http://ai-int.mbc.co.kr:8000/v1/chat/completions" 
+    _oss_url = "http://ai-int.mbc.co.kr:9000/v1/chat/completions"
     
     _system_prompt = """
-        다음 음악 검색 쿼리를 JSON으로 파싱하고, CLAP 임베딩용 텍스트도 생성해주세요.
+     음악 검색 쿼리를 분석하여 JSON 형식으로 반환해주세요.
 
-        규칙:
-        - artist: 아티스트명 배열
-        - title: 곡명 배열
-        - genre: 장르 배열  
-        - mood: 분위기 배열
-        - popular: 유명함 배열 (맥락상 popular 정렬이 필요한지)
-        - year: 연도 범위
-        - context: 상황/맥락 배열
-        - vibe: CLAP 임베딩용 영어 텍스트 배열 (genre, mood, context 기반으로 생성)
-         *단, 직접적으로 언급된 항목만 채울것
-        * 예시) "빅뱅 붉은노을" → {
-            "artist": ["빅뱅", "BIGBANG"],
-            "title" : ["붉은노을"]
+        ## JSON 스키마
+        {
+        "artist": [],     // 아티스트명 (한글/영어 병기)
+        "title": [],      // 곡명 또는 제목 키워드
+        "genre": [],      // 장르
+        "mood": [],       // 분위기/감정
+        "popular": [],    // 인기도 [true/false] (default: [false])
+        "year": [],       // 연도 범위 [시작, 끝]
+        "vibe": [],       // CLAP 임베딩용 영어 설명 (추천 쿼리에만)
+        "lyrics": [],     // 가사 검색어
+        "case": 0         // 케이스 번호 (0-8)
         }
 
-        CLAP 텍스트 생성 규칙:
-        - mood/genre를 구체적인 음악 설명으로 변환
-        - 상황/맥락을 음악적 특성으로 표현
-        - 3개의 다양한 표현 생성
+        ## 파싱 규칙
 
-        예시:
-        1. "뉴진스 같은 Y2K 느낌 노래"
-        → {
-        "artist": ["뉴진스", "NewJeans"],
-        "title": [],
-        "genre": ["pop"],
-        "mood": ["nostalgic", "retro"],
-        "popular": [False],
-        "year": [2000, 2010],
-        "context": ["y2k"],
-        "vibe": ["nostalgic pop music", "retro style song", "y2k pop track", "early 2000s pop music", "teen pop ballad"]
-        }
-
-        2. "비 오는 날 듣기 좋은 잔잔한 유명한 노래"
-        → {
-        "artist": [],
-        "title": ["비 오는 날 듣기 좋은 잔잔한 유명한 노래"],
-        "genre": ["ballad"],
-        "mood": ["calm", "melancholy"],
-        "popular": [True],
-        "year": [],
-        "context": ["rain", "relaxing"],
-        "vibe": ["calm ballad", "melancholic song", "rainy day music", "soft acoustic music", "peaceful slow song"]
-        }
-
-        3. "운동할 때 신나는 댄스 음악"
-        → {
-        "artist": [],
-        "title": ["운동할 때 신나는 댄스 음악"],
-        "genre": ["dance"],
-        "mood": ["energetic", "exciting"],
-        "popular": [False],
-        "year": [],
-        "context": ["workout"],
-        "vibe": ["energetic dance music", "upbeat workout song", "high energy electronic music", "fast tempo dance track", "gym motivation music"]
-        }
-
-        4. ""(비어있는 경우)
-        → {
-        "artist": [],
-        "title": [],
-        "genre": [],
-        "mood": [],
-        "popular": [False],
-        "year": [],
-        "context": [],
-        "vibe": []
-        }
-
-        5. artist, title 판단이 어려운 경우 (artist, title 리스트에 그냥 넣을 것) 
+        ### 기본 원칙
+        1. **쿼리에 명시된 정보만 추출** (추측 금지)
+        2. **아티스트명, 노래제목은 한글/영어 병기** (가능한 경우)
+        3. **가사 검색어는 lyrics 필드에만 입력**
+        4. **사용자 쿼리에 mood 값이 포함되어 있다면 반환 mood 리스트에도 포함할것(영어가 아니면 영어로 번역해서 대체할 것)
+        5. **vibe는 추천성 쿼리에만 생성** (4단어 이상의 영어 문장)
+        6. **popular는 명시적 언급시에만 [true]. 기본값은 [false]** ("유명한", "히트곡" 등)
         
-        반드시 JSON 형식으로만 응답하세요.
+        ### 오탈자 처리 원칙
+        - **아티스트명과 곡명에서 오탈자 처리**:
+          • 원본 텍스트를 먼저 포함
+          • 명백한 오탈자가 있다면 수정된 버전도 추가
+          • 예: "biutyful" → ["biutyful", "beautiful"] (원본 먼저, 수정 버전 추가)
+          • 예: "coldplay" → ["Coldplay"] (대소문자만 정규화)
+        - **실제 존재하는 곡명/아티스트명 우선 보존**
+          • 오탈자처럼 보여도 실제 존재할 수 있는 이름은 원본 유지
+          • 예: "biutyful"이라는 실제 곡이 있을 수 있음
+        
+        ### title 필드 사용 기준
+        - **사용하는 경우**: 
+          • 구체적인 제목 키워드가 있을 때 (예: "사랑이 들어간 노래", "비가 들어간 제목")
+          • 특정 단어/주제가 제목에 포함되길 원할 때 (예: "비오는날", "크리스마스")
+          • Case 9처럼 상황과 직접 연관된 키워드가 필요할 때
+        
+        - **사용하지 않는 경우**:
+          • 순수한 분위기/감정 추천 (예: "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡")
+          • 추상적인 상황 설명 (예: "편안한 분위기의 음악")
+          • vibe로 충분히 표현 가능한 경우
+
+        ### 케이스 분류
+
+        | Case | 설명 | 예시 쿼리 | 주요 필드 |
+        |------|------|-----------|-----------|
+        | 0 | 특정 가수 검색 | "이승철 노래" | artist |
+        | 1 | 제목 키워드 검색 | "제목에 사랑이 들어간 노래" | title |
+        | 2 | 가수+곡명 검색 | "아이유 좋은날" | artist, title |
+        | 3 | 조건 검색 | "90년대 유행한 힙합" | genre, year, popular |
+        | 4 | 가수+조건 검색 | "빌리 아일리시 2020년 히트곡" | artist, year, popular |
+        | 5 | 가수+느낌 검색 | "뉴진스 같은 Y2K 노래" | artist, mood, vibe |
+        | 6 | 감정/상황 추천(구체적) | "비오는날 듣기 좋은 노래" | title(비/rain 관련), mood, vibe] |
+        | 7 | 감정/상황 추천(추상적) | "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" | mood, vibe(상세 설명)|
+        | 8 | 가수 + 감정/상황 추천 | "빌리 아일리시 노래 중에 슬플 때 기운나는 노래 추천해줘" | artist, mood, vibe |
+        | 9 | 가사 검색 | "니가 없는 거리에는 가사 들어간 노래" | lyrics(니가 없는 거리에는) |
+        | 10 | 상황별 센스있는 추천 | "배고플 때 듣는 노래" | title(관련 키워드), vibe |
+        | 11 | 줄글에 대한 상황 요약 후 추천 | 라디오 사연, 기사 등과 같은 줄글 | mood, vibe |
+        | 12 | 나머지 분류가 안될 때(예외 케이스) | |
+
+        ### 특별 처리 사항
+        - ** 유사단어 체크 ** "노래"="음악"="곡"
+        - **Case 6 vs Case 7 구분**: 
+          • Case 6: 구체적 상황/키워드 → title 사용 (예: "비오는날" → title에 "비", "rain" 포함)
+          • Case 7: 추상적/감성적 표현 → title 미사용, vibe에 상세 설명
+        - **Case 10**: 상황에 맞는 센스있는 키워드를 title에 포함
+        - **vibe 생성**: mood/genre를 자연스러운 영어 문장이 담긴 리스트 변환
+        - **애매한 텍스트**: 노래 제목인지 불확실한 경우 title에서 제외
+        
+        ### 예시 분석
+        1. "비오는날 듣기 좋은 노래" → title: ["비", "rain"], vibe: ["relaxing songs for rainy days"]
+        2. "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" → title: [], vibe: ["healing instrumental music with nature sounds and ambient pads"]
+        3. "크리스마스 분위기 노래" → title: ["크리스마스", "christmas"], vibe: ["festive christmas mood songs"]
+        4. "편안하고 차분한 음악" → title: [], vibe: ["calm and relaxing peaceful music"]
+
+        JSON 형식으로만 응답하세요.
     """
 
     _gemma_payload = {
@@ -95,12 +104,31 @@ class MuseLLM:
             }
         ],            
         "max_tokens": 500,
-        "temperature": 0.1,
+        "temperature": 0.5,
+        "response_format": {"type": "json_object"}  # JSON 응답 강제 (지원되면)
+    }
+
+    _oss_payload = {
+        "model": "openai/gpt-oss-120b",
+        "messages": [
+            {
+                "role": "system",
+                "content": _system_prompt
+            },
+
+            {
+                "role": "user",
+                "content": "쿼리"
+            }
+        ],            
+        "max_tokens": 500,
+        "temperature": 0.5,
         "response_format": {"type": "json_object"}  # JSON 응답 강제 (지원되면)
     }
 
     @staticmethod
     def make_system_reason_prompt(text, total_results, rank=5):
+
         return f"""
         아래는 사용자의 음악 검색 요청에 대한 결과입니다. 
         자연스럽고 친근한 응답으로 음악을 추천해주세요.
@@ -118,16 +146,18 @@ class MuseLLM:
         {MuseLLM.format_songs(total_results['results'][:rank])}
 
         요청사항:
-        1. 사용자의 요청과 가장 관련성이 높은 선별하여 추천(주어진 곡대로 전부 줄 것, 단 최대 5개)
-        2. 각 곡에 대해 왜 추천하는지 간단한 설명 추가        
-        3. 자연스러운 대화체로 응답
-        4. response 값에 리스트("[,,,,]")안에 이유(description)만 담아서 반환할 것.(파싱해서 써야하기 때문에 리스트 반환 필수,[이유1, 이유2, 이유3, ...]) 
+        1. 각 곡에 대해 왜 추천하는지 간단한 설명 추가  
+        2. 자연스러운 대화체로 응답
+        3. response 값에 리스트("[,,,,]")안에 이유(description)만 담아서 반환할 것.(파싱해서 써야하기 때문에 리스트 반환 필수,[이유1, 이유2, 이유3, ..., 이유{rank}]) 
+
+        JSON 형식으로만 응답하세요.
     """
 
     @staticmethod
+    # "model": "google/gemma-3-27b-it",
     def make_system_reason_payload(prompt):
         return {
-        "model": "google/gemma-3-27b-it",
+        "model": "openai/gpt-oss-120b",
         "messages": [
             {
                 "role": "system",
@@ -139,31 +169,38 @@ class MuseLLM:
                 "content": "쿼리"
             }
         ],            
-        "max_tokens": 500,
-        "temperature": 0.1,
+        "max_tokens": 1000,
+        "temperature": 0.4,
         "response_format": {"type": "json_object"}  # JSON 응답 강제 (지원되면)
     }
 
 
     @staticmethod
-    def get_request(text):          
-        MuseLLM._gemma_payload['messages'][1]['content'] = f'''쿼리: {text}'''
-
-        response = requests.post(MuseLLM._gemma_url, json= MuseLLM._gemma_payload)
-
-        # 응답 파싱
-        if response.status_code == 200:
-            data = response.json()
-            return data['choices'][0]['message']['content']
-            # corrected_text = response.json().get("text")  # 또는 "response", "result" 등 API 응답 형식에 따라
-            # print("교정된 문장:", corrected_text)
-        else:
-            print("오류:", response.status_code, response.text)
+    def get_request(text, mood, llm_type='gemma'):
+        try:            
+            if llm_type == 'gemma':
+                MuseLLM._gemma_payload['messages'][1]['content'] = f'''쿼리: {text}, 무드: {mood}'''
+                response = requests.post(MuseLLM._gemma_url, json= MuseLLM._gemma_payload)
+            elif llm_type == 'oss':
+                MuseLLM._oss_payload['messages'][1]['content'] = f'''쿼리: {text}, 무드: {mood}'''
+                response = requests.post(MuseLLM._oss_url, json= MuseLLM._oss_payload)        
+            
+            # 응답 파싱
+            if response.status_code == 200:
+                data = response.json()      
+                results = json.loads(data['choices'][0]['message']['content'])
+                results['llm_model'] = llm_type                            
+                return results
+            else:
+                logging.error(f'''오류: {response.status_code}, {response.text}''')
+                return None
+        except Exception as e:
+            logging.error(e)
             return None
         
     @staticmethod
     def get_reason(text, total_results, rank=5):
-        response = requests.post(MuseLLM._gemma_url, json= MuseLLM.make_system_reason_payload(prompt=MuseLLM. make_system_reason_prompt(text=text, total_results=total_results, rank=rank)))
+        response = requests.post(MuseLLM._oss_url, json= MuseLLM.make_system_reason_payload(prompt=MuseLLM.make_system_reason_prompt(text=text, total_results=total_results, rank=rank)))
         # 응답 파싱
         if response.status_code == 200:
             data = response.json()            
@@ -174,6 +211,6 @@ class MuseLLM:
 
     @staticmethod
     def format_songs(songs):
-      return '\n'.join([f"- {s['artist']} - {s['song_name']} (매칭도: {1-s['dis']:.2f})"
-          for s in songs
+      return '\n'.join([f"- {idx+1}. {s['artist']} - {s['song_name']} (매칭도: {1-s['dis']:.2f})"
+          for idx, s in enumerate(songs)
       ])

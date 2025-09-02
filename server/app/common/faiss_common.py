@@ -39,6 +39,16 @@ class MuseFaiss:
         except Exception as e2:
             logging.error(f"Failed to load vibe backup index: {e2}")
 
+    try:
+        indices['lyrics'] = faiss.read_index(f'{INDEX_PATH}/muse_lyrics.index')
+        logging.info(f"Loaded lyrics index: {indices['vibe'].ntotal} vectors")
+    except Exception as e:
+        logging.warning(f"Failed to load lyrics index, trying backup: {e}")
+        try:
+            indices['lyrics'] = faiss.read_index(f'{INDEX_PATH}/muse_lyrics_backup.index')
+        except Exception as e2:
+            logging.error(f"Failed to load lyrics backup index: {e2}")
+
     @staticmethod
     def search(key: str, query_vector: np.ndarray, k: int = 100) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         """특정 인덱스에서 검색 수행"""
@@ -52,7 +62,17 @@ class MuseFaiss:
             if query_vector.ndim == 1:
                 query_vector = query_vector.reshape(1, -1)
             
-            D, I = index.search(query_vector.astype('float32'), k)
+            D, I = index.search(query_vector.astype('float32'), k)            
+            # logging.info(f'''{key}, {D}, {I}''')
+            if key in ['artist', 'lyrics', 'title']:
+                # logging.info(f'''threshold 적용 {key}''')
+                threshold = 0.9  # 예시 (L2 distance일 경우)
+
+                # L2 기반일 때 (작을수록 유사)
+                mask = D > threshold
+                D[mask] = np.inf   # 무효값으로 처리
+                I[mask] = -1       # 유효하지 않은 인덱스는 -1로
+
             return D, I
         except Exception as e:
             logging.error(f"Search error in {key} index: {e}")
