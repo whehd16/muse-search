@@ -57,10 +57,13 @@ class SearchDAO:
         where_clause =" OR ".join(conditions)
         results = OracleDB.execute_query(f"""
             SELECT A.ARTIST, A.PLAYER, A.BAND_NAME, A.SONG_NAME, A.PLAY_TIME, 
-            B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO, MASTERING_YEAR, HIT_YEAR, B.DISC_GENRE_TXT
+            B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO, MASTERING_YEAR, HIT_YEAR, B.DISC_GENRE_TXT,
+            C.JPG_FILE_NAME
             FROM MIBIS.MI_SONG_INFO A 
             JOIN MIBIS.MI_DISC_INFO B 
-            ON A.DISC_COMM_SEQ = B.DISC_COMM_SEQ 
+            ON A.DISC_COMM_SEQ = B.DISC_COMM_SEQ
+            LEFT JOIN MIBIS.MI_DISC_COMM_INFO C
+            ON B.DISC_COMM_SEQ = C.DISC_COMM_SEQ
             WHERE {where_clause}
         """)
         
@@ -84,10 +87,13 @@ class SearchDAO:
     @staticmethod
     def get_song_meta(disccommseq: int, trackno: str) -> Dict:
         result = OracleDB.execute_query(f"""
-            SELECT A.ARTIST, A.PLAYER, A.BAND_NAME, A.SONG_NAME, A.PLAY_TIME, B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO, MASTERING_YEAR, HIT_YEAR, B.DISC_GENRE_TXT
+            SELECT A.ARTIST, A.PLAYER, A.BAND_NAME, A.SONG_NAME, A.PLAY_TIME, B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO, MASTERING_YEAR, HIT_YEAR, B.DISC_GENRE_TXT,
+            C.JPG_FILE_NAME
             FROM MIBIS.MI_SONG_INFO A 
             JOIN MIBIS.MI_DISC_INFO B 
-            ON A.DISC_COMM_SEQ = B.DISC_COMM_SEQ 
+            ON A.DISC_COMM_SEQ = B.DISC_COMM_SEQ
+            LEFT JOIN MIBIS.MI_DISC_COMM_INFO C
+            ON B.DISC_COMM_SEQ = C.DISC_COMM_SEQ
             WHERE A.DISC_COMM_SEQ={disccommseq} AND A.TRACK_NO='{trackno}'
         """)
         if result:
