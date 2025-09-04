@@ -20,6 +20,7 @@ class MuseLLM:
         "year": [],       // 연도 범위 [시작, 끝]
         "vibe": [],       // CLAP 임베딩용 영어 설명 (추천 쿼리에만)
         "lyrics": [],     // 가사 검색어
+        "lyrics_summary": [], // 가사 요약 임베딩용 영어 설명 (가사 관련 쿼리에만)
         "case": 0         // 케이스 번호 (0-8)
         }
 
@@ -31,7 +32,8 @@ class MuseLLM:
         3. **가사 검색어는 lyrics 필드에만 입력**
         4. **사용자 쿼리에 mood 값이 포함되어 있다면 반환 mood 리스트에도 포함할것(영어가 아니면 영어로 번역해서 대체할 것)
         5. **vibe는 추천성 쿼리에만 생성** (4단어 이상의 영어 문장)
-        6. **popular는 명시적 언급시에만 [true]. 기본값은 [false]** ("유명한", "히트곡" 등)
+        6. **lyrics_summary는 가사 관련 쿼리에 생성** (가사 내용/주제를 영어로 요약, vibe와 동일 형식)
+        7. **popular는 명시적 언급시에만 [true]. 기본값은 [false]** ("유명한", "히트곡" 등)
         
         ### 오탈자 처리 원칙
         - **아티스트명과 곡명에서 오탈자 처리**:
@@ -67,7 +69,7 @@ class MuseLLM:
         | 6 | 감정/상황 추천(구체적) | "비오는날 듣기 좋은 노래" | title(비/rain 관련), mood, vibe] |
         | 7 | 감정/상황 추천(추상적) | "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" | mood, vibe(상세 설명)|
         | 8 | 가수 + 감정/상황 추천 | "빌리 아일리시 노래 중에 슬플 때 기운나는 노래 추천해줘" | artist, mood, vibe |
-        | 9 | 가사 검색 | "니가 없는 거리에는 가사 들어간 노래" | lyrics(니가 없는 거리에는) |
+        | 9 | 가사 검색 | "니가 없는 거리에는 가사 들어간 노래" | lyrics(니가 없는 거리에는), lyrics_summary(songs about empty streets without you) |
         | 10 | 상황별 센스있는 추천 | "배고플 때 듣는 노래" | title(관련 키워드), vibe |
         | 11 | 줄글에 대한 상황 요약 후 추천 | 라디오 사연, 기사 등과 같은 줄글 | mood, vibe |
         | 12 | 나머지 분류가 안될 때(예외 케이스) | |
@@ -79,6 +81,7 @@ class MuseLLM:
           • Case 7: 추상적/감성적 표현 → title 미사용, vibe에 상세 설명
         - **Case 10**: 상황에 맞는 센스있는 키워드를 title에 포함
         - **vibe 생성**: mood/genre를 자연스러운 영어 문장이 담긴 리스트 변환
+        - **lyrics_summary 생성**: 가사 검색 쿼리를 영어로 의미있게 요약 (vibe와 동일한 형식)
         - **애매한 텍스트**: 노래 제목인지 불확실한 경우 title에서 제외
         
         ### 예시 분석
@@ -86,6 +89,8 @@ class MuseLLM:
         2. "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" → title: [], vibe: ["healing instrumental music with nature sounds and ambient pads"]
         3. "크리스마스 분위기 노래" → title: ["크리스마스", "christmas"], vibe: ["festive christmas mood songs"]
         4. "편안하고 차분한 음악" → title: [], vibe: ["calm and relaxing peaceful music"]
+        5. "이별 후 혼자 남은 가사가 있는 노래" → lyrics: ["이별", "혼자"], lyrics_summary: ["songs about being alone after breakup"]
+        6. "사랑한다고 말하는 가사" → lyrics: ["사랑한다"], lyrics_summary: ["lyrics expressing love and confession"]
 
         JSON 형식으로만 응답하세요.
     """
