@@ -85,11 +85,11 @@ class MuseLLM:
         - **애매한 텍스트**: 노래 제목인지 불확실한 경우 title에서 제외
         
         ### 예시 분석
-        1. "비오는날 듣기 좋은 노래" → title: ["비", "rain"], vibe: ["relaxing songs for rainy days"]
-        2. "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" → title: [], vibe: ["healing instrumental music with nature sounds and ambient pads"]
-        3. "크리스마스 분위기 노래" → title: ["크리스마스", "christmas"], vibe: ["festive christmas mood songs"]
-        4. "편안하고 차분한 음악" → title: [], vibe: ["calm and relaxing peaceful music"]
-        5. "이별 후 혼자 남은 가사가 있는 노래" → lyrics: ["이별", "혼자"], lyrics_summary: ["songs about being alone after breakup"]
+        1. "비오는날 듣기 좋은 노래" → title: ["비", "rain"], vibe: ["relaxing songs for rainy days"], lyrics_summary: ["relaxing songs for rainy days"]
+        2. "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" → title: [], vibe: ["healing instrumental music with nature sounds and ambient pads"], lyrics_summary: ["healing instrumental music with nature sounds and ambient pads"]
+        3. "크리스마스 분위기 노래" → title: ["크리스마스", "christmas"], vibe: ["festive christmas mood songs"], lyrics_summary: ["festive christmas mood songs"]
+        4. "편안하고 차분한 음악" → title: [], vibe: ["calm and relaxing peaceful music"], lyrics_summary: ["calm and relaxing peaceful music"]
+        5. "이별 후 혼자 남은 가사가 있는 노래" → lyrics: ["이별 후 혼자"], lyrics_summary: ["songs about being alone after breakup"]
         6. "사랑한다고 말하는 가사" → lyrics: ["사랑한다"], lyrics_summary: ["lyrics expressing love and confession"]
 
         JSON 형식으로만 응답하세요.

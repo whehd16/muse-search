@@ -17,12 +17,12 @@ class SearchService:
     # 스레드 풀 설정 (동시 사용자 대응)
     _executor = ThreadPoolExecutor(max_workers=16)  # CPU 코어 * 2
     _index_mapping = {
-            "artist": "muse_artist",
-            "title": "muse_title",             
-            "vibe": "muse_vibe",
-            "lyrics": "muse_lyrics",
-            "lyrics": "muse_lyrics_summary"
-        }
+        "artist": "muse_artist",
+        "title": "muse_title",             
+        "vibe": "muse_vibe",
+        "lyrics": "muse_lyrics",
+        "lyrics_summary": "muse_lyrics_summary"
+    }
     _rank_num = 5
     _k_mapping = {
         "title" : 7500,
@@ -64,7 +64,7 @@ class SearchService:
         if 'year' not in llm_results:
             llm_results['year'] = []
         if 'popular' not in llm_results:
-            llm_results['popular'] = False
+            llm_results['popular'] = False        
         
         # llm_results['artist'].append(text)
         # llm_results['title'].append(text)
@@ -81,13 +81,12 @@ class SearchService:
         #     llm_results["title"].append(llm_results["title"][0]+'*live')
 
         logging.info(llm_results)
-
         search_coroutines = []
         task_keys = []
         for key, values in llm_results.items():
             # llm_results = {"artist":""", "title":"", "genre": "", "mood":[], "year":"2024", "popular":True}     
                
-            if values and key in SearchService._index_mapping:            
+            if values and key in SearchService._index_mapping:                         
                 for value in values:
                     job = SearchService._search_single_index(key=key, query_text=value, index_file_name=SearchService._index_mapping[key])
                     search_coroutines.append(job)
@@ -181,16 +180,13 @@ class SearchService:
     def _faiss_search(key: str, query_text: Any, index_file_name: str) -> Tuple:
         #artist, title, vibe
         try:                
-            query_vector = EmbeddingService.get_vector(key=key, text=query_text.lower().replace(' ',''))           
-            # print(key, query_text, query_vector)   
+            query_vector = EmbeddingService.get_vector(key=key, text=query_text.lower().replace(' ',''))                       
             if key not in ['artist', 'title', 'lyrics', 'lyrics_summary', 'vibe']:
                 return (key, {})
             D, I = FaissService.search(key=key, query_vector=query_vector, k=SearchService._k_mapping[key])                                        
             
             if D is None or I is None:
-                return (key, {})
-            
-            # logging.info(f'''\t {key}, {query_text}, {D}, {I}''')
+                return (key, {})                
 
             # 검색 결과 반환
             results = {}

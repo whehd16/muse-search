@@ -8,7 +8,8 @@ class SearchDAO:
         'artist': 'tb_embedding_bgem3_artist_h',
         'title': 'tb_embedding_bgem3_song_name_h',
         'vibe' : 'tb_embedding_clap_h',
-        'lyrics': 'tb_embedding_bgem3_lyrics_slide_h'
+        'lyrics': 'tb_embedding_bgem3_lyrics_slide_h',
+        'lyrics_summary': 'tb_embedding_clap_lyrics_summary_h'
     }
     
     @staticmethod

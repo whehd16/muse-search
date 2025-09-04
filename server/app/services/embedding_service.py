@@ -27,6 +27,9 @@ class EmbeddingService:
         },
         'vibe': {
             'embedding_model': 'clap'
+        },
+        'lyrics_summary':{
+            'embedding_model': 'clap'
         }
     }
 
