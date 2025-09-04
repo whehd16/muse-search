@@ -5,6 +5,7 @@ from common.response_common import success_response, error_response
 from pydantic import BaseModel
 from typing import List
 import time
+import logging
 
 router = APIRouter(
     prefix="/search",
@@ -18,10 +19,8 @@ class TextRequest(BaseModel):
 @router.post("/text")
 async def search_song(input_data: TextRequest):    
     text = input_data.text    
-    mood = input_data.mood    
-    print(text, mood)
+    mood = input_data.mood        
     start = time.time()
     result = await SearchService.search_text(text=text, mood=mood)
-    print('소요시간:',time.time()-start)
-    # FaissService.search_song(text)
+    logging.info(f'''소요시간: {time.time()-start}''')
     return result

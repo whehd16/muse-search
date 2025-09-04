@@ -20,21 +20,26 @@ class SearchService:
             "artist": "muse_artist",
             "title": "muse_title",             
             "vibe": "muse_vibe",
-            "lyrics": "muse_lyrics"
+            "lyrics": "muse_lyrics",
+            "lyrics": "muse_lyrics_summary"
         }
     _rank_num = 5
     _k_mapping = {
-        "title" : 5000,
-        "artist": 5000,
-        "vibe": 10000,
-        "lyrics": 5000
+        "title" : 7500,
+        "artist": 8000,
+        "vibe": 15000,
+        "lyrics": 5000,
+        "lyrics_summary": 5000
+
     }
     _batch_size = 1000
     _priority = {
         "title": 0,
         "artist": 1,   # title과 동급
-        "vibe": 2,
-        "lyrics": 3,   # 후순위
+        "vibe": 2,        
+        "lyrics_summary": 3,   # 후순위
+        "lyrics": 4,   # 후순위
+        
     }
     
     @staticmethod
@@ -178,7 +183,7 @@ class SearchService:
         try:                
             query_vector = EmbeddingService.get_vector(key=key, text=query_text.lower().replace(' ',''))           
             # print(key, query_text, query_vector)   
-            if key not in ['artist', 'title', 'lyrics', 'vibe']:
+            if key not in ['artist', 'title', 'lyrics', 'lyrics_summary', 'vibe']:
                 return (key, {})
             D, I = FaissService.search(key=key, query_vector=query_vector, k=SearchService._k_mapping[key])                                        
             

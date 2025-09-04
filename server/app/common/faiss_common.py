@@ -49,6 +49,17 @@ class MuseFaiss:
         except Exception as e2:
             logging.error(f"Failed to load lyrics backup index: {e2}")
 
+    try:
+        indices['lyrics_summary'] = faiss.read_index(f'{INDEX_PATH}/muse_lyrics_summary.index')
+        logging.info(f"Loaded lyrics_summary index: {indices['vibe'].ntotal} vectors")
+    except Exception as e:
+        logging.warning(f"Failed to load lyrics_summary index, trying backup: {e}")
+        try:
+            indices['lyrics_summary'] = faiss.read_index(f'{INDEX_PATH}/muse_lyrics_summary_backup.index')
+        except Exception as e2:
+            logging.error(f"Failed to load lyrics_summary backup index: {e2}")
+
+
     @staticmethod
     def search(key: str, query_vector: np.ndarray, k: int = 100) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         """특정 인덱스에서 검색 수행"""

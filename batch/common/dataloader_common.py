@@ -7,19 +7,18 @@ import numpy as np
 
 class MuseDataLoader:
     _selected_mod = [1, 21, 41, 61, 81]
-    # _table_name = 'muse.tb_embedding_{0}_{1}_h'    
-    _table_name = 'muse.tb_embedding_{0}_h'    
+    _table_name = 'muse.tb_embedding_{0}_{1}_h'        
     _mod_select_window_size = 5000
     _columns = {
         'clap_song': 'embedding_result',
+        'clap_lyrics_summary': 'embedding_result',
         'bgem3_artist': 'artist_embedding',
         'bgem3_song_name': 'song_name_embedding',
         'bgem3_lyrics_slide': 'embedding_result'
     }
 
     @staticmethod
-    def get_last_idx(model, embedding_type):
-        # return 12188072
+    def get_last_idx(model, embedding_type):        
         try:
             result, code = Database.execute_query(
                 f'''
