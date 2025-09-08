@@ -16,11 +16,27 @@ class TextRequest(BaseModel):
     text: str
     mood: list
 
+
+class SimilarRequest(BaseModel):
+    disccommseq: int
+    trackno: str
+
 @router.post("/text")
 async def search_song(input_data: TextRequest):    
     text = input_data.text    
     mood = input_data.mood        
     start = time.time()
+    logging.info(f'''User Query: {text}''')
     result = await SearchService.search_text(text=text, mood=mood)
+    logging.info(f'''소요시간: {time.time()-start}''')
+    return result
+
+@router.post("/similar")
+async def search_song(input_data: SimilarRequest):
+    disccommseq = input_data.disccommseq
+    trackno = input_data.trackno
+    start = time.time()
+    logging.info(f'''Find Similar: {disccommseq}_{trackno} ''')
+    result = await SearchService.search_similar_song(key='vibe', disccommseq=disccommseq, trackno=trackno)
     logging.info(f'''소요시간: {time.time()-start}''')
     return result

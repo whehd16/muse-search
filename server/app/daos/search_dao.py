@@ -2,7 +2,6 @@ from common.mysql_common import Database
 from common.oracle_common import OracleDB
 from typing import List, Dict
 
-
 class SearchDAO:
     _table_mapping ={
         'artist': 'tb_embedding_bgem3_artist_h',
@@ -42,6 +41,18 @@ class SearchDAO:
             }
         else:
             return {}
+        
+    @staticmethod
+    def get_song_clap_embedding(key, disccommseq, trackno):        
+        results, code = Database.execute_query(f"""
+            SELECT disccommseq, trackno, chunk_num, embedding_result
+            FROM {SearchDAO._table_mapping[key]}
+            WHERE disccommseq = {disccommseq} AND trackno = '{trackno}'
+        """, fetchall=True)
+        if code == 200:
+            return [ result[3] for result in results ]
+        else:
+            return []
 
     @staticmethod
     def get_song_batch_meta(disc_track_pairs: List[tuple]):
