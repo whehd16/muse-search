@@ -12,6 +12,7 @@ from collections import defaultdict
 import time
 import json
 import math
+import io
 
 class SearchService:
     # 스레드 풀 설정 (동시 사용자 대응)
@@ -25,8 +26,8 @@ class SearchService:
     }
     _rank_num = 5
     _k_mapping = {
-        "title" : 7500,
-        "artist": 8000,
+        "title" : 5000,
+        "artist": 7000,
         "vibe": 15000,
         "lyrics": 5000,
         "lyrics_summary": 5000
@@ -34,9 +35,9 @@ class SearchService:
     }
     _batch_size = 1000
     _priority = {
-        "title": 0,
-        "artist": 1,   # title과 동급
-        "vibe": 2,        
+        "vibe": 0,        
+        "title": 1,
+        "artist": 2,   # title과 동급        
         "lyrics_summary": 3,   # 후순위
         "lyrics": 4,   # 후순위
         
@@ -54,9 +55,11 @@ class SearchService:
     @staticmethod
     async def search_text(text: str, mood: list, timeout: float = 30.0) -> Dict[str, List]:        
         llm_results = MuseLLM.get_request(text=text, mood=mood)
+        logging.info(f'''FIRST: {llm_results}''')
         if ('case' in llm_results and llm_results['case'] == 12) or not llm_results or len(llm_results) == 1:
             llm_results = MuseLLM.get_request(text=text, mood=mood, llm_type='oss')
-        
+            logging.info(f'''SECOND: {llm_results}''')
+
         if 'artist' not in llm_results:
             llm_results['artist'] = []
         if 'title' not in llm_results:
@@ -66,7 +69,7 @@ class SearchService:
         if 'popular' not in llm_results:
             llm_results['popular'] = False        
         
-        # llm_results['artist'].append(text)
+        # llm_results['artist'].append('Seo TaJi')
         # llm_results['title'].append(text)
 
         # # llm_results = {"artist":"", "title":"", "lyrics": "", "genre": "", "mood":[], "vibe":[], "year":"2024", "popular":True}        
@@ -90,7 +93,7 @@ class SearchService:
                 for value in values:
                     job = SearchService._search_single_index(key=key, query_text=value, index_file_name=SearchService._index_mapping[key])
                     search_coroutines.append(job)
-                    task_keys.append(key)        
+                    task_keys.append(key)                         
         try:
             results_list = await asyncio.wait_for(
                 asyncio.gather(*search_coroutines, return_exceptions=True),
@@ -101,10 +104,10 @@ class SearchService:
             logging.error(f"Search operation timed out after {timeout}s")
             return {key: [] for key in task_keys}
         
-        # print(results_list)
+        # logging.info(results_list)
         # for d in results_list:
         #     for k, v in d.items():
-        #         logging.info(f'''{k}, {v}'''
+        #         logging.info(f'''{k}, {v}''')
         
         merged = defaultdict(lambda: None)
 
@@ -125,7 +128,7 @@ class SearchService:
 
         # dict → list 변환
         merged_list = list(merged.values())
-        
+        # logging.info(merged_list)
         # count 기준으로 내림차순 정렬        
         merged_list.sort(key=lambda x: x["dis"], reverse=False)
         # merged_list.sort(key=lambda x: ( -len(x["index_name_set"]), SearchService.priority_score(x["index_name_set"]), x["dis"]))
@@ -224,9 +227,61 @@ class SearchService:
                         song_meta['dis'] =  0.0001 if key == 'artist' and song_meta['artist'] and query_text.lower().replace(' ','').strip() in song_meta['artist'].lower().replace(' ','').strip() else 0.0005 if key == 'title' and song_meta['song_name'] and query_text.lower().replace(' ','').strip() in song_meta['song_name'].lower().replace(' ','').strip() else min([float(batched_dict[idx]) for idx in idx_list])                                                
                         song_meta['index_name'] = key
                         results[f'''{song_key}'''] = song_meta                
-
+            # logging.info(f'''{key} {query_text} {results}''')
             return (key, results)
             
         except Exception as e:
             print(f"Error in FAISS search for {key}: {e}")
             return (key, {})
+        
+    
+    @staticmethod
+    async def search_similar_song(key, disccommseq, trackno):
+        try:
+            results = {}
+            #SearchDAO    에서 disc_comm_seq, track_no 관련된 곡 시퀀스 정보 가져오기
+            embedding_results = SearchDAO.get_song_clap_embedding(key=key, disccommseq=disccommseq, trackno=trackno)
+            embedding_results = [ np.atleast_2d(np.load(io.BytesIO(embedding_result), allow_pickle=True))[0] for embedding_result in embedding_results]
+            batched_I = []
+            
+            for embedding_result in embedding_results:
+                D, I = FaissService.search(key=key, query_vector=embedding_result, k=100)                                                    
+                batched_I.append([int(idx)+1 for idx in I[0]])
+            
+            for _, batch_idx_list in enumerate(batched_I):
+                song_info_dict = SearchDAO.get_song_batch_info(key=key, idx_list=batch_idx_list)
+                if song_info_dict:
+                    disc_track_pairs = [(song_info['disccommseq'], song_info['trackno']) for _, song_info in song_info_dict.items()]         
+                    song_info_idx = {}           
+                    for idx, song_info in song_info_dict.items():
+                        if f'''{song_info['disccommseq']}_{song_info['trackno']}''' not in song_info_idx:
+                            song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''] = []
+                        song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''].append(idx)     
+                
+                    song_meta_dict = SearchDAO.get_song_batch_meta(disc_track_pairs=disc_track_pairs)                                        
+                    
+                    for song_key, song_meta in song_meta_dict.items():      
+                        
+                        if song_key not in results:
+                            results[song_key] = {
+                                'count': 0,
+                                'meta': song_meta
+                            }             
+                        results[song_key]['count'] += 1         
+            if f'''{disccommseq}_{trackno}''' in results:
+                del results[f'''{disccommseq}_{trackno}''']
+                
+            sorted_results = sorted(results.items(), key=lambda x: x[1]['count'], reverse=True)
+            similar_tracks = [ 
+                { 
+                    'disc_id': sorted_results[i][1]['meta']['disc_comm_seq'],
+                    'track_id' : sorted_results[i][1]['meta']['track_no'],
+                    'title': sorted_results[i][1]['meta']['song_name'],
+                    'artist' : sorted_results[i][1]['meta']['artist'] 
+                } for i in range(min(5, len(sorted_results)))
+            ]  
+
+            return {'similar_tracks': similar_tracks}
+        except Exception as e:
+            logging.error(e)
+            return {'similar_tracks': []}
