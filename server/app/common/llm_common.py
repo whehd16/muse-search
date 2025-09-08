@@ -31,7 +31,7 @@ class MuseLLM:
         2. **아티스트명, 노래제목은 한글/영어 병기** (가능한 경우)
         3. **가사 검색어는 lyrics 필드에만 입력**
         4. **사용자 쿼리에 mood 값이 포함되어 있다면 반환 mood 리스트에도 포함할것(영어가 아니면 영어로 번역해서 대체할 것)
-        5. **vibe는 추천성 쿼리에만 생성** (4단어 이상의 영어 문장)
+        5. **vibe는 추천성 쿼리에만 생성** (음악적 특징/분위기만 포함, 아티스트명 제외)
         6. **lyrics_summary는 가사 관련 쿼리에 생성** (가사 내용/주제를 영어로 요약, vibe와 동일 형식)
         7. **popular는 명시적 언급시에만 [true]. 기본값은 [false]** ("유명한", "히트곡" 등)
         
@@ -65,10 +65,10 @@ class MuseLLM:
         | 2 | 가수+곡명 검색 | "아이유 좋은날" | artist, title |
         | 3 | 조건 검색 | "90년대 유행한 힙합" | genre, year, popular |
         | 4 | 가수+조건 검색 | "빌리 아일리시 2020년 히트곡" | artist, year, popular |
-        | 5 | 가수+느낌 검색 | "뉴진스 같은 Y2K 노래" | artist, mood, vibe |
+        | 5 | 가수+느낌 검색 | "뉴진스 같은 Y2K 노래" | artist, mood, vibe(Y2K 특징만) |
         | 6 | 감정/상황 추천(구체적) | "비오는날 듣기 좋은 노래" | title(비/rain 관련), mood, vibe] |
         | 7 | 감정/상황 추천(추상적) | "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" | mood, vibe(상세 설명)|
-        | 8 | 가수 + 감정/상황 추천 | "빌리 아일리시 노래 중에 슬플 때 기운나는 노래 추천해줘" | artist, mood, vibe |
+        | 8 | 가수 + 감정/상황 추천 | "빌리 아일리시 노래 중에 슬플 때 기운나는 노래 추천해줘" | artist, mood, vibe(분위기만) |
         | 9 | 가사 검색 | "니가 없는 거리에는 가사 들어간 노래" | lyrics(니가 없는 거리에는), lyrics_summary(songs about empty streets without you) |
         | 10 | 상황별 센스있는 추천 | "배고플 때 듣는 노래" | title(관련 키워드), vibe |
         | 11 | 줄글에 대한 상황 요약 후 추천 | 라디오 사연, 기사 등과 같은 줄글 | mood, vibe |
@@ -80,17 +80,19 @@ class MuseLLM:
           • Case 6: 구체적 상황/키워드 → title 사용 (예: "비오는날" → title에 "비", "rain" 포함)
           • Case 7: 추상적/감성적 표현 → title 미사용, vibe에 상세 설명
         - **Case 10**: 상황에 맞는 센스있는 키워드를 title에 포함
-        - **vibe 생성**: mood/genre를 자연스러운 영어 문장이 담긴 리스트 변환
+        - **vibe 생성**: 음악적 특징/분위기만 영어로 표현 (아티스트명 제외, CLAP 모델 최적화)
         - **lyrics_summary 생성**: 가사 검색 쿼리를 영어로 의미있게 요약 (vibe와 동일한 형식)
         - **애매한 텍스트**: 노래 제목인지 불확실한 경우 title에서 제외
         
         ### 예시 분석
-        1. "비오는날 듣기 좋은 노래" → title: ["비", "rain"], vibe: ["relaxing songs for rainy days"], lyrics_summary: ["relaxing songs for rainy days"]
-        2. "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" → title: [], vibe: ["healing instrumental music with nature sounds and ambient pads"], lyrics_summary: ["healing instrumental music with nature sounds and ambient pads"]
-        3. "크리스마스 분위기 노래" → title: ["크리스마스", "christmas"], vibe: ["festive christmas mood songs"], lyrics_summary: ["festive christmas mood songs"]
-        4. "편안하고 차분한 음악" → title: [], vibe: ["calm and relaxing peaceful music"], lyrics_summary: ["calm and relaxing peaceful music"]
-        5. "이별 후 혼자 남은 가사가 있는 노래" → lyrics: ["이별 후 혼자"], lyrics_summary: ["songs about being alone after breakup"]
-        6. "사랑한다고 말하는 가사" → lyrics: ["사랑한다"], lyrics_summary: ["lyrics expressing love and confession"]
+        1. "비오는날 듣기 좋은 노래" → title: ["비", "rain"], vibe: ["relaxing music for rainy days"], lyrics_summary: ["relaxing music for rainy days"]
+        2. "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" → title: [], vibe: ["healing instrumental with nature sounds and ambient pads"], lyrics_summary: ["healing instrumental with nature sounds and ambient pads"]
+        3. "크리스마스 분위기 노래" → title: ["크리스마스", "christmas"], vibe: ["festive christmas mood"], lyrics_summary: ["festive christmas mood"]
+        4. "편안하고 차분한 음악" → title: [], vibe: ["calm relaxing peaceful"], lyrics_summary: ["calm relaxing peaceful"]
+        5. "이별 후 혼자 남은 가사가 있는 노래" → lyrics: ["이별 후 혼자"], lyrics_summary: ["being alone after breakup"]
+        6. "사랑한다고 말하는 가사" → lyrics: ["사랑한다"], lyrics_summary: ["expressing love and confession"]
+        7. "칸예웨스트 노래 중에 피아노 선율로 시작하는 노래" → artist: ["Kanye West", "칸예웨스트"], vibe: ["piano melody beginning"], case: 5
+        8. "BTS 노래 중 신나는 댄스곡" → artist: ["BTS", "방탄소년단"], vibe: ["upbeat dance energetic"], case: 8
 
         JSON 형식으로만 응답하세요.
     """

@@ -36,7 +36,8 @@ class EmbeddingService:
     @staticmethod
     def get_vector(key: str, text: str) -> np.ndarray:        
         embedding_url = EmbeddingService.embedding_requests_info[EmbeddingService.embedding_info[key]['embedding_model']]['url']
-        embedding_body = EmbeddingService.embedding_requests_info[EmbeddingService.embedding_info[key]['embedding_model']]['body']
+        # 딕셔너리를 복사해서 스레드 안전성 확보
+        embedding_body = EmbeddingService.embedding_requests_info[EmbeddingService.embedding_info[key]['embedding_model']]['body'].copy()
         embedding_body['text'] = text.strip()
         res = requests.post(url=embedding_url, json=embedding_body)
         res = json.loads(res.text)        
