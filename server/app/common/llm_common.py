@@ -46,15 +46,20 @@ class MuseLLM:
           • 예: "biutyful"이라는 실제 곡이 있을 수 있음
         
         ### title 필드 사용 기준
-        - **사용하는 경우**: 
-          • 구체적인 제목 키워드가 있을 때 (예: "사랑이 들어간 노래", "비가 들어간 제목")
-          • 특정 단어/주제가 제목에 포함되길 원할 때 (예: "비오는날", "크리스마스")
-          • Case 9처럼 상황과 직접 연관된 키워드가 필요할 때
+        - **우선 사용하는 경우**: 
+          • 사용자가 명시적으로 "제목에 ~가 들어간" 요청 (예: "제목에 사랑이 들어간 노래")
+          • 날씨/계절의 직접적 언급 (예: "비", "크리스마스" - 높은 확률로 제목에 포함)
+        
+        - **선택적 사용 (상황에 따라 판단)**:
+          • 상황/활동 설명: 일부만 title에 포함, 주로 mood/vibe 활용
+            - "운동할 때" → title 미사용, vibe: ["energetic workout music"]
+            - "노래방에서" → title에 일부 인기곡 키워드 가능, 주로 mood 활용
+            - "엄마랑 같이" → title 미사용, vibe: ["family friendly warm music"]
         
         - **사용하지 않는 경우**:
-          • 순수한 분위기/감정 추천 (예: "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡")
-          • 추상적인 상황 설명 (예: "편안한 분위기의 음악")
-          • vibe로 충분히 표현 가능한 경우
+          • 악기/음향 특징 (예: "피아노와 일렉기타가 인상적인" → vibe로만 처리)
+          • 순수한 분위기/감정 (예: "편안한 분위기")
+          • 음악적 특징 설명 (예: "템포가 빠른", "어쿠스틱한")
 
         ### 케이스 분류
 
@@ -66,33 +71,38 @@ class MuseLLM:
         | 3 | 조건 검색 | "90년대 유행한 힙합" | genre, year, popular |
         | 4 | 가수+조건 검색 | "빌리 아일리시 2020년 히트곡" | artist, year, popular |
         | 5 | 가수+느낌 검색 | "뉴진스 같은 Y2K 노래" | artist, mood, vibe(Y2K 특징만) |
-        | 6 | 감정/상황 추천(구체적) | "비오는날 듣기 좋은 노래" | title(비/rain 관련), mood, vibe] |
+        | 6 | 감정/상황 추천(구체적) | "운동할 때 듣기 좋은 노래" | mood, vibe(상황 분위기) |
         | 7 | 감정/상황 추천(추상적) | "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" | mood, vibe(상세 설명)|
         | 8 | 가수 + 감정/상황 추천 | "빌리 아일리시 노래 중에 슬플 때 기운나는 노래 추천해줘" | artist, mood, vibe(분위기만) |
         | 9 | 가사 검색 | "니가 없는 거리에는 가사 들어간 노래" | lyrics(니가 없는 거리에는), lyrics_summary(songs about empty streets without you) |
-        | 10 | 상황별 센스있는 추천 | "배고플 때 듣는 노래" | title(관련 키워드), vibe |
+        | 10 | 상황별 센스있는 추천 | "배고플 때 듣는 노래" | mood, vibe(재치있는 분위기) |
         | 11 | 줄글에 대한 상황 요약 후 추천 | 라디오 사연, 기사 등과 같은 줄글 | mood, vibe |
         | 12 | 나머지 분류가 안될 때(예외 케이스) | |
 
         ### 특별 처리 사항
         - ** 유사단어 체크 ** "노래"="음악"="곡"
         - **Case 6 vs Case 7 구분**: 
-          • Case 6: 구체적 상황/키워드 → title 사용 (예: "비오는날" → title에 "비", "rain" 포함)
+          • Case 6: 구체적 상황 → 선택적 title 사용, 주로 mood/vibe 활용
           • Case 7: 추상적/감성적 표현 → title 미사용, vibe에 상세 설명
-        - **Case 10**: 상황에 맞는 센스있는 키워드를 title에 포함
+        - **Case 10**: 재치있는 상황은 선택적 title, 주로 mood/vibe 활용
         - **vibe 생성**: 음악적 특징/분위기만 영어로 표현 (아티스트명 제외, CLAP 모델 최적화)
         - **lyrics_summary 생성**: 가사 검색 쿼리를 영어로 의미있게 요약 (vibe와 동일한 형식)
         - **애매한 텍스트**: 노래 제목인지 불확실한 경우 title에서 제외
         
         ### 예시 분석
-        1. "비오는날 듣기 좋은 노래" → title: ["비", "rain"], vibe: ["relaxing music for rainy days"], lyrics_summary: ["relaxing music for rainy days"]
-        2. "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" → title: [], vibe: ["healing instrumental with nature sounds and ambient pads"], lyrics_summary: ["healing instrumental with nature sounds and ambient pads"]
-        3. "크리스마스 분위기 노래" → title: ["크리스마스", "christmas"], vibe: ["festive christmas mood"], lyrics_summary: ["festive christmas mood"]
-        4. "편안하고 차분한 음악" → title: [], vibe: ["calm relaxing peaceful"], lyrics_summary: ["calm relaxing peaceful"]
+        1. "비오는날 듣기 좋은 노래" → title: ["비", "rain"], vibe: ["relaxing music for rainy days"]
+        2. "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" → title: [], vibe: ["healing instrumental with nature sounds and ambient pads"]
+        3. "크리스마스 분위기 노래" → title: ["크리스마스", "christmas"], vibe: ["festive christmas mood"]
+        4. "편안하고 차분한 음악" → title: [], vibe: ["calm relaxing peaceful"]
         5. "이별 후 혼자 남은 가사가 있는 노래" → lyrics: ["이별 후 혼자"], lyrics_summary: ["being alone after breakup"]
         6. "사랑한다고 말하는 가사" → lyrics: ["사랑한다"], lyrics_summary: ["expressing love and confession"]
         7. "칸예웨스트 노래 중에 피아노 선율로 시작하는 노래" → artist: ["Kanye West", "칸예웨스트"], vibe: ["piano melody beginning"], case: 5
         8. "BTS 노래 중 신나는 댄스곡" → artist: ["BTS", "방탄소년단"], vibe: ["upbeat dance energetic"], case: 8
+        9. "엄마랑 같이 듣기 좋은 노래" → title: [], mood: ["warm", "family"], vibe: ["family friendly warm music"], case: 6
+        10. "친구들이랑 노래방에서 부를 노래" → title: [], mood: ["fun", "party"], vibe: ["karaoke party singalong"], popular: [true], case: 6
+        11. "데이트할 때 틀면 좋은 노래" → title: [], mood: ["romantic", "sweet"], vibe: ["romantic date atmosphere"], case: 6
+        12. "운동할 때 듣기 좋은 노래" → title: [], mood: ["energetic", "powerful"], vibe: ["energetic workout motivation"], case: 6
+        13. "피아노와 일렉기타가 인상적인 노래" → title: [], vibe: ["impressive piano and electric guitar"], case: 7
 
         JSON 형식으로만 응답하세요.
     """
