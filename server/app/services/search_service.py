@@ -219,7 +219,9 @@ class SearchService:
                             song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''] = []
                         song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''].append(idx)     
                
-                    song_meta_dict = SearchDAO.get_song_batch_meta(disc_track_pairs=disc_track_pairs)                                        
+                    song_meta_dict = SearchDAO.get_song_batch_meta(disc_track_pairs=disc_track_pairs)
+                    mood_value_dict = SearchDAO.get_song_mood_value(disc_track_pairs=disc_track_pairs)       
+                    logging.info(mood_value_dict)                                 
                     
                     for song_key, song_meta in song_meta_dict.items():                            
                         idx_list = song_info_idx[song_key]                                                                                                                 

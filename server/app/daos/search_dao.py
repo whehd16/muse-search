@@ -113,3 +113,31 @@ class SearchDAO:
             except:
                 pass
             return result[0]
+    
+    @staticmethod
+    def get_song_mood_value(disc_track_pairs: List[tuple]):
+        if not disc_track_pairs:
+            return {}
+        
+        conditions = []
+        for disccommseq, trackno in disc_track_pairs:
+            conditions.append(f"(disccommseq={disccommseq} AND trackno='{trackno}')")
+        
+        where_clause = " OR ".join(conditions)
+        results, code = Database.execute_query(f"""
+            SELECT disccommseq, trackno, arousal, valence
+            FROM muse.tb_info_song_mood_h
+            WHERE {where_clause}
+        """, fetchall=True)
+        
+        if code == 200:
+            mood_value_dict = {}
+            for result in results:
+                key = f"{result[0]}_{result[1]}"
+                mood_value_dict[key] = {
+                    'arousal': result[2],
+                    'valence': result[3]
+                }
+            return mood_value_dict
+        else:
+            return {}
