@@ -125,7 +125,7 @@ class SearchDAO:
         
         where_clause = " OR ".join(conditions)
         results, code = Database.execute_query(f"""
-            SELECT disccommseq, trackno, arousal, valence
+            SELECT disccommseq, trackno, mood_list, arousal, valence
             FROM muse.tb_info_song_mood_h
             WHERE {where_clause}
         """, fetchall=True)
@@ -135,8 +135,9 @@ class SearchDAO:
             for result in results:
                 key = f"{result[0]}_{result[1]}"
                 mood_value_dict[key] = {
-                    'arousal': result[2],
-                    'valence': result[3]
+                    'mood_list': result[2],
+                    'arousal': result[3],
+                    'valence': result[4]
                 }
             return mood_value_dict
         else:
