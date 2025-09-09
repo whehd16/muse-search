@@ -221,7 +221,6 @@ class SearchService:
                
                     song_meta_dict = SearchDAO.get_song_batch_meta(disc_track_pairs=disc_track_pairs)
                     mood_value_dict = SearchDAO.get_song_mood_value(disc_track_pairs=disc_track_pairs)       
-                    logging.info(mood_value_dict)                                 
                     
                     for song_key, song_meta in song_meta_dict.items():                            
                         idx_list = song_info_idx[song_key]                                                                                                                 
