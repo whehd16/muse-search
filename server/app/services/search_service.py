@@ -9,6 +9,7 @@ from common.faiss_common import MuseFaiss
 from services.faiss_service import FaissService
 from daos.search_dao import SearchDAO
 from collections import defaultdict
+from config import MOOD_KOREAN_MAPPING
 import time
 import json
 import math
@@ -56,7 +57,7 @@ class SearchService:
     async def search_text(text: str, mood: list, timeout: float = 30.0) -> Dict[str, List]:        
         llm_results = MuseLLM.get_request(text=text, mood=mood)
         logging.info(f'''FIRST: {llm_results}''')
-        if ('case' in llm_results and llm_results['case'] == 12) or not llm_results or len(llm_results) == 1:
+        if llm_results.get('case') == 12 or not llm_results or len(llm_results) == 1 or all(not llm_results[k] for k in llm_results if k not in {'case', 'llm_model'}):
             llm_results = MuseLLM.get_request(text=text, mood=mood, llm_type='oss')
             logging.info(f'''SECOND: {llm_results}''')
 
@@ -67,21 +68,7 @@ class SearchService:
         if 'year' not in llm_results:
             llm_results['year'] = []
         if 'popular' not in llm_results:
-            llm_results['popular'] = False        
-        
-        # llm_results['artist'].append('Seo TaJi')
-        # llm_results['title'].append(text)
-
-        # # llm_results = {"artist":"", "title":"", "lyrics": "", "genre": "", "mood":[], "vibe":[], "year":"2024", "popular":True}        
-        # if not llm_results:
-        #     return {
-        #         'year_list': [],
-        #         'popular': False,
-        #         'results': []
-        #     }                
-        
-        # if len(llm_results["title"]) != 1:
-        #     llm_results["title"].append(llm_results["title"][0]+'*live')
+            llm_results['popular'] = False                
 
         logging.info(llm_results)
         search_coroutines = []
@@ -221,15 +208,15 @@ class SearchService:
                
                     song_meta_dict = SearchDAO.get_song_batch_meta(disc_track_pairs=disc_track_pairs)
                     mood_value_dict = SearchDAO.get_song_mood_value(disc_track_pairs=disc_track_pairs)       
-                    logging.info(mood_value_dict)                                 
                     
                     for song_key, song_meta in song_meta_dict.items():                            
                         idx_list = song_info_idx[song_key]                                                                                                                 
                         song_meta['count'] = 1                    
                         song_meta['dis'] =  0.0001 if key == 'artist' and song_meta['artist'] and query_text.lower().replace(' ','').strip() in song_meta['artist'].lower().replace(' ','').strip() else 0.0005 if key == 'title' and song_meta['song_name'] and query_text.lower().replace(' ','').strip() in song_meta['song_name'].lower().replace(' ','').strip() else min([float(batched_dict[idx]) for idx in idx_list])                                                
                         song_meta['index_name'] = key
+                        song_meta['main_mood'] = [ MOOD_KOREAN_MAPPING.get(mood, mood) for mood in json.loads(mood_value_dict[song_key]['mood_list'])] if song_key in mood_value_dict else []
+                        song_meta['energy_level'] = ((mood_value_dict[song_key]['arousal']-1)/16 + (mood_value_dict[song_key]['valence']-1)/16)*100 if song_key in mood_value_dict else 50.0
                         results[f'''{song_key}'''] = song_meta                
-            # logging.info(f'''{key} {query_text} {results}''')
             return (key, results)
             
         except Exception as e:
@@ -279,7 +266,8 @@ class SearchService:
                     'disc_id': sorted_results[i][1]['meta']['disc_comm_seq'],
                     'track_id' : sorted_results[i][1]['meta']['track_no'],
                     'title': sorted_results[i][1]['meta']['song_name'],
-                    'artist' : sorted_results[i][1]['meta']['artist'] 
+                    'artist' : sorted_results[i][1]['meta']['artist'],
+                    'jpg_file_name': sorted_results[i][1]['meta']['jpg_file_name'] 
                 } for i in range(min(5, len(sorted_results)))
             ]  
 
