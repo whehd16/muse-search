@@ -1,6 +1,7 @@
 from common.mysql_common import Database
 from common.oracle_common import OracleDB
 from typing import List, Dict
+import logging
 
 class SearchDAO:
     _table_mapping ={
@@ -115,6 +116,18 @@ class SearchDAO:
             return result[0]
     
     @staticmethod
+    def get_mood_dict():
+        results, code = Database.execute_query(f"""
+            SELECT eng_mood, kor_mood
+            FROM muse.tb_mood_mapping_m            
+        """, fetchall=True)
+        
+        if code == 200:
+            return { result[0]: result[1] for result in results }
+        else:
+            return {}
+
+    @staticmethod
     def get_song_mood_value(disc_track_pairs: List[tuple]):
         if not disc_track_pairs:
             return {}
@@ -136,6 +149,46 @@ class SearchDAO:
                 key = f"{result[0]}_{result[1]}"
                 mood_value_dict[key] = {
                     'mood_list': result[2],
+                    'arousal': result[3],
+                    'valence': result[4]
+                }
+            return mood_value_dict
+        else:
+            return {}
+        if not disc_track_pairs:
+            return {}
+        
+        conditions = []
+        for disccommseq, trackno in disc_track_pairs:
+            conditions.append(f"(s.disccommseq={disccommseq} AND s.trackno='{trackno}')")
+        
+        where_clause = " OR ".join(conditions)
+
+        query = f"""
+            SELECT 
+                s.disccommseq,
+                s.trackno,
+                JSON_ARRAYAGG(m.kor_mood) AS mood_list,  -- 한국어 리스트로 변환
+                s.arousal,
+                s.valence
+            FROM muse.tb_info_song_mood_h s
+            JOIN JSON_TABLE(
+                s.mood_list, '$[*]' COLUMNS(mood VARCHAR(50) PATH '$')
+            ) jt ON TRUE
+            LEFT JOIN muse.tb_mood_mapping_m m
+                ON jt.mood = m.eng_mood
+            WHERE {where_clause}
+            GROUP BY s.disccommseq, s.trackno, s.arousal, s.valence
+        """
+
+        results, code = Database.execute_query(query, fetchall=True)        
+        
+        if code == 200:
+            mood_value_dict = {}
+            for result in results:
+                key = f"{result[0]}_{result[1]}"
+                mood_value_dict[key] = {
+                    'mood_list': result[2],  # 한국어 JSON 배열로 나옴
                     'arousal': result[3],
                     'valence': result[4]
                 }

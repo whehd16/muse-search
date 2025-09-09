@@ -9,7 +9,6 @@ from common.faiss_common import MuseFaiss
 from services.faiss_service import FaissService
 from daos.search_dao import SearchDAO
 from collections import defaultdict
-from config import MOOD_KOREAN_MAPPING
 import time
 import json
 import math
@@ -28,8 +27,8 @@ class SearchService:
     _rank_num = 5
     _k_mapping = {
         "title" : 5000,
-        "artist": 7000,
-        "vibe": 15000,
+        "artist": 5000,
+        "vibe": 10000,
         "lyrics": 5000,
         "lyrics_summary": 5000
 
@@ -55,11 +54,16 @@ class SearchService:
 
     @staticmethod
     async def search_text(text: str, mood: list, timeout: float = 30.0) -> Dict[str, List]:        
-        llm_results = MuseLLM.get_request(text=text, mood=mood)
-        logging.info(f'''FIRST: {llm_results}''')
+
+        t1 = time.time()
+
+
+        llm_results = MuseLLM.get_request(text=text, mood=mood)        
         if llm_results.get('case') == 12 or not llm_results or len(llm_results) == 1 or all(not llm_results[k] for k in llm_results if k not in {'case', 'llm_model'}):
-            llm_results = MuseLLM.get_request(text=text, mood=mood, llm_type='oss')
-            logging.info(f'''SECOND: {llm_results}''')
+            llm_results = MuseLLM.get_request(text=text, mood=mood, llm_type='oss')            
+
+        t2 = time.time()
+        logging.info(f'''LLM검색 완료({text}: {t2 - t1}''')
 
         if 'artist' not in llm_results:
             llm_results['artist'] = []
@@ -96,6 +100,9 @@ class SearchService:
         #     for k, v in d.items():
         #         logging.info(f'''{k}, {v}''')
         
+        t3 = time.time()
+        logging.info(f'''FAISS 검색 완료({text}): {t3 - t2}''')
+
         merged = defaultdict(lambda: None)
 
         for (key, group) in results_list:     
@@ -113,11 +120,14 @@ class SearchService:
                         merged[key]["dis"] *= song_info.get("dis", 0.0)
                         merged[key]["index_name_set"].add(song_info.get("index_name"))
 
+        t4 = time.time()
+        logging.info(f'''결과 병합 완료({text}: {t4 - t3}''')        
+        
         # dict → list 변환
         merged_list = list(merged.values())
         # logging.info(merged_list)
         # count 기준으로 내림차순 정렬        
-        merged_list.sort(key=lambda x: x["dis"], reverse=False)
+        merged_list.sort(key=lambda x: x["dis"], reverse=False)        
         # merged_list.sort(key=lambda x: ( -len(x["index_name_set"]), SearchService.priority_score(x["index_name_set"]), x["dis"]))
         
         # merged_list.sort(key=lambda x: len(x[""], reverse=False)
@@ -170,6 +180,7 @@ class SearchService:
     def _faiss_search(key: str, query_text: Any, index_file_name: str) -> Tuple:
         #artist, title, vibe
         try:                
+            t1 = time.time()
             query_vector = EmbeddingService.get_vector(key=key, text=query_text.lower().replace(' ',''))                       
             if key not in ['artist', 'title', 'lyrics', 'lyrics_summary', 'vibe']:
                 return (key, {})
@@ -190,12 +201,13 @@ class SearchService:
                 batched_I.append([ int(I[0][idx])+1 for idx in range(i, min(len(I[0]), i+SearchService._batch_size))])                                
                 batched_D.append([ float(D[0][idx]) for idx in range(i, min(len(I[0]), i+SearchService._batch_size))])                            
             
+            t2 = time.time()   
+            logging.info(f'''\t\tFAISS_{key}_{query_text} D, I 검색 완료: {t2-t1}''')
             for i, (batch_idx_list, batch_dist_list) in enumerate(zip(batched_I, batched_D)):                   
                 batched_dict = { # idx: dis
                     batch_idx_list[j]: batch_dist_list[j]
                     for j in range(len(batch_idx_list))
                 }                
-                
                 song_info_dict = SearchDAO.get_song_batch_info(key=key, idx_list=batch_idx_list)
                 # >> song_info_dict=:{ idx:{'disccommseq': "", 'trackno':""}}
                 if song_info_dict:
@@ -205,25 +217,35 @@ class SearchService:
                         if f'''{song_info['disccommseq']}_{song_info['trackno']}''' not in song_info_idx:
                             song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''] = []
                         song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''].append(idx)     
-               
+                    t4_1 = time.time()
                     song_meta_dict = SearchDAO.get_song_batch_meta(disc_track_pairs=disc_track_pairs)
-                    mood_value_dict = SearchDAO.get_song_mood_value(disc_track_pairs=disc_track_pairs)       
+                    t4_2 = time.time()
+                    logging.info(f'''\t\t\t get_song_batch_meta: {t4_2-t4_1}''')
+                    mood_value_dict = SearchDAO.get_song_mood_value(disc_track_pairs=disc_track_pairs)                           
+                    mood_dict = SearchDAO.get_mood_dict()
+                    
+                    t4_3 = time.time()
+                    logging.info(f'''\t\t\t get_song_mood_value({len(disc_track_pairs)}): {t4_3-t4_2}''')
                     
                     for song_key, song_meta in song_meta_dict.items():                            
                         idx_list = song_info_idx[song_key]                                                                                                                 
                         song_meta['count'] = 1                    
                         song_meta['dis'] =  0.0001 if key == 'artist' and song_meta['artist'] and query_text.lower().replace(' ','').strip() in song_meta['artist'].lower().replace(' ','').strip() else 0.0005 if key == 'title' and song_meta['song_name'] and query_text.lower().replace(' ','').strip() in song_meta['song_name'].lower().replace(' ','').strip() else min([float(batched_dict[idx]) for idx in idx_list])                                                
                         song_meta['index_name'] = key
-                        song_meta['main_mood'] = [ MOOD_KOREAN_MAPPING.get(mood, mood) for mood in json.loads(mood_value_dict[song_key]['mood_list'])] if song_key in mood_value_dict else []
+                        song_meta['main_mood'] = [ mood_dict[mood] for mood in json.loads(mood_value_dict[song_key]['mood_list']) ] if song_key in mood_value_dict else []
                         song_meta['energy_level'] = ((mood_value_dict[song_key]['arousal']-1)/16 + (mood_value_dict[song_key]['valence']-1)/16)*100 if song_key in mood_value_dict else 50.0
-                        results[f'''{song_key}'''] = song_meta                
+                        results[f'''{song_key}'''] = song_meta      
+                    t4_4 = time.time()
+                    logging.info(f'''\t\t\t done: {t4_4-t4_3}''')                
+   
+            t6 = time.time()   
+            logging.info(f'''\tFAISS_{key}_{query_text} 검색 완료: {t6-t2}''')
             return (key, results)
             
         except Exception as e:
             print(f"Error in FAISS search for {key}: {e}")
             return (key, {})
         
-    
     @staticmethod
     async def search_similar_song(key, disccommseq, trackno):
         try:
