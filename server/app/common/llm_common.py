@@ -151,7 +151,7 @@ class MuseLLM:
     }
 
     @staticmethod
-    def make_system_reason_prompt(text, total_results, rank=5):
+    def make_system_reason_prompt(text, llm_result, song_info):
 
         return f"""
         아래는 사용자의 음악 검색 요청에 대한 결과입니다. 
@@ -159,15 +159,10 @@ class MuseLLM:
 
         사용자 요청: {text}
 
-        검색 결과:
-        - 찾은 노래 수: {len(total_results['results'])}개
-        - 인기도 필터: {'인기곡 위주' if total_results['popular'] else 
-        '전체 범위'}
-        - 연도 필터: {', '.join(total_results['year_list']) if 
-        total_results['year_list'] else '전체 기간'}
+        사용자 요청에 대한 FAISS 처리 목록: {llm_result}
 
-        상위 추천곡:
-        {MuseLLM.format_songs(total_results['results'][:rank])}
+        최종 추천곡:
+        {song_info}
 
         요청사항:
         1. 각 곡에 대해 왜 추천하는지 간단한 설명 추가  
@@ -198,7 +193,6 @@ class MuseLLM:
         "response_format": {"type": "json_object"}  # JSON 응답 강제 (지원되면)
     }
 
-
     @staticmethod
     def get_request(text, mood, llm_type='gemma'):
         try:            
@@ -221,20 +215,14 @@ class MuseLLM:
         except Exception as e:
             logging.error(e)
             return None
-        
+
     @staticmethod
-    def get_reason(text, total_results, rank=5):
-        response = requests.post(MuseLLM._oss_url, json= MuseLLM.make_system_reason_payload(prompt=MuseLLM.make_system_reason_prompt(text=text, total_results=total_results, rank=rank)))
+    def get_reason(text, llm_result, song_info):
+        response = requests.post(MuseLLM._oss_url, json= MuseLLM.make_system_reason_payload(prompt=MuseLLM.make_system_reason_prompt(text=text, llm_result=llm_result, song_info=song_info)))
         # 응답 파싱
         if response.status_code == 200:
             data = response.json()            
             return data['choices'][0]['message']['content']            
         else:
-            print("오류:", response.status_code, response.text)
+            logging.error("오류:", response.status_code, response.text)
             return None
-
-    @staticmethod
-    def format_songs(songs):
-      return '\n'.join([f"- {idx+1}. {s['artist']} - {s['song_name']} (매칭도: {1-s['dis']:.2f})"
-          for idx, s in enumerate(songs)
-      ])
