@@ -389,6 +389,12 @@ class SearchService:
     async def search_similar_song(key, disccommseq, trackno):
         try:
             results = {}
+            
+            # 타겟 곡의 메타 정보 가져오기
+            target_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)
+            target_artist = target_meta.get('artist', '')
+            target_title = target_meta.get('song_name', '')
+            
             #SearchDAO    에서 disc_comm_seq, track_no 관련된 곡 시퀀스 정보 가져오기
             embedding_results = SearchDAO.get_song_clap_embedding(key=key, disccommseq=disccommseq, trackno=trackno)
             embedding_results = [ np.atleast_2d(np.load(io.BytesIO(embedding_result), allow_pickle=True))[0] for embedding_result in embedding_results]
@@ -418,6 +424,8 @@ class SearchService:
                                 'meta': song_meta
                             }             
                         results[song_key]['count'] += 1         
+            
+            # 정확히 같은 disc_id, track_id 제거
             if f'''{disccommseq}_{trackno}''' in results:
                 del results[f'''{disccommseq}_{trackno}''']
                 
@@ -434,6 +442,11 @@ class SearchService:
                 meta = song_data['meta']
                 current_artist = meta['artist']
                 current_title = meta['song_name']
+                
+                # 타겟 곡과 중복 체크 (타겟 곡의 다른 버전들 제외)
+                if SearchService._is_duplicate_song(current_artist, current_title, 
+                                                   target_artist, target_title):
+                    continue
                 
                 # 이미 추가된 곡들과 중복 체크
                 is_duplicate = False
