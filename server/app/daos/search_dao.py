@@ -70,7 +70,11 @@ class SearchDAO:
         results = OracleDB.execute_query(f"""
             SELECT A.ARTIST, A.PLAYER, A.BAND_NAME, A.SONG_NAME, A.PLAY_TIME, 
             B.DISC_NAME, A.DISC_COMM_SEQ, A.TRACK_NO, MASTERING_YEAR, HIT_YEAR, B.DISC_GENRE_TXT,
-            C.JPG_FILE_NAME
+            C.JPG_FILE_NAME, A.MP3_PATH,
+            CASE 
+                WHEN A.MP3_PATH IS NULL THEN 0 
+                ELSE 1 
+            END AS MP3_PATH_FLAG
             FROM MIBIS.MI_SONG_INFO A 
             JOIN MIBIS.MI_DISC_INFO B 
             ON A.DISC_COMM_SEQ = B.DISC_COMM_SEQ
@@ -93,8 +97,6 @@ class SearchDAO:
             song_meta_dict[key] = row
         
         return song_meta_dict
-        
-        
 
     @staticmethod
     def get_song_meta(disccommseq: int, trackno: str) -> Dict:

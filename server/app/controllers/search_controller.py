@@ -51,8 +51,7 @@ async def analyze_result(input_data: AnalyzeRequest):
     text = input_data.text
     llm_result = input_data.llm_result
     disccommseq = input_data.disccommseq
-    trackno = input_data.trackno
-
+    trackno = input_data.trackno    
     result = await SearchService.search_analyze_result(text=text, llm_result=llm_result, disccommseq=disccommseq, trackno=trackno)
     return result
 
