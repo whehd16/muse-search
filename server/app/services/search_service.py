@@ -9,10 +9,13 @@ from common.faiss_common import MuseFaiss
 from services.faiss_service import FaissService
 from daos.search_dao import SearchDAO
 from collections import defaultdict
+from rapidfuzz import fuzz
+import re
 import time
 import json
 import math
 import io
+
 
 class SearchService:
     # 스레드 풀 설정 (동시 사용자 대응)
@@ -344,6 +347,45 @@ class SearchService:
             return (key, {})
         
     @staticmethod
+    def _normalize_for_dedup(text):
+        """중복 제거를 위한 텍스트 정규화"""        
+        if not text:
+            return ""
+        # 파일 확장자 제거
+        text = re.sub(r'\.(mp3|wav|flac|m4a)$', '', text, flags=re.IGNORECASE)
+        # 괄호 안 내용 제거 (리메이크, 버전 정보 등)
+        text = re.sub(r'\([^)]*\)', '', text)
+        text = re.sub(r'\[[^\]]*\]', '', text)
+        # 특수문자 제거, 소문자 변환, 공백 정규화
+        text = re.sub(r'[^\w\s가-힣]', '', text)
+        text = ' '.join(text.lower().split())
+        return text
+    
+    @staticmethod
+    def _is_duplicate_song(artist1, title1, artist2, title2, threshold=0.85):
+        """두 곡이 중복인지 판단 (정규화 + 유사도 체크)"""
+        # 먼저 정규화된 문자열로 정확한 매칭 체크
+        norm_artist1 = SearchService._normalize_for_dedup(artist1)
+        norm_title1 = SearchService._normalize_for_dedup(title1)
+        norm_artist2 = SearchService._normalize_for_dedup(artist2)
+        norm_title2 = SearchService._normalize_for_dedup(title2)
+        
+        # 정규화된 결과가 완전히 같으면 중복
+        if norm_artist1 == norm_artist2 and norm_title1 == norm_title2:
+            return True
+        
+        # 선택적: rapidfuzz를 사용한 유사도 체크 (설치 필요시)
+        try:            
+            # artist와 title 조합으로 비교
+            combined1 = f"{norm_artist1} {norm_title1}"
+            combined2 = f"{norm_artist2} {norm_title2}"
+            similarity = fuzz.ratio(combined1, combined2) / 100.0
+            return similarity >= threshold
+        except ImportError:
+            # rapidfuzz가 없으면 정규화 매칭만 사용
+            return False
+    
+    @staticmethod
     async def search_similar_song(key, disccommseq, trackno):
         try:
             results = {}
@@ -380,18 +422,39 @@ class SearchService:
                 del results[f'''{disccommseq}_{trackno}''']
                 
             sorted_results = sorted(results.items(), key=lambda x: x[1]['count'], reverse=True)
-            similar_tracks = [ 
-                { 
-                    'disc_id': sorted_results[i][1]['meta']['disc_comm_seq'],
-                    'track_id' : sorted_results[i][1]['meta']['track_no'],
-                    'title': sorted_results[i][1]['meta']['song_name'],
-                    'artist' : sorted_results[i][1]['meta']['artist'],
-                    'jpg_file_name': sorted_results[i][1]['meta']['jpg_file_name'],
-                    'mp3_path_flag': sorted_results[i][1]['meta']['mp3_path_flag'] 
-                } for i in range(min(5, len(sorted_results)))
-            ]  
+            
+            # 중복 제거 로직 추가
+            final_tracks = []
+            seen_songs = []  # (artist, title) 튜플 저장
+            
+            for song_key, song_data in sorted_results:
+                if len(final_tracks) >= 5:
+                    break
+                    
+                meta = song_data['meta']
+                current_artist = meta['artist']
+                current_title = meta['song_name']
+                
+                # 이미 추가된 곡들과 중복 체크
+                is_duplicate = False
+                for seen_artist, seen_title in seen_songs:
+                    if SearchService._is_duplicate_song(current_artist, current_title, 
+                                                       seen_artist, seen_title):
+                        is_duplicate = True
+                        break
+                
+                if not is_duplicate:
+                    final_tracks.append({
+                        'disc_id': meta['disc_comm_seq'],
+                        'track_id': meta['track_no'],
+                        'title': current_title,
+                        'artist': current_artist,
+                        'jpg_file_name': meta['jpg_file_name'],
+                        'mp3_path_flag': meta['mp3_path_flag']
+                    })
+                    seen_songs.append((current_artist, current_title))
 
-            return {'similar_tracks': similar_tracks}
+            return {'similar_tracks': final_tracks}
         except Exception as e:
             logging.error(e)
             return {'similar_tracks': []}
