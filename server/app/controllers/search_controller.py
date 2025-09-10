@@ -16,8 +16,13 @@ class TextRequest(BaseModel):
     text: str
     mood: list
 
-
 class SimilarRequest(BaseModel):
+    disccommseq: int
+    trackno: str
+
+class AnalyzeRequest(BaseModel):
+    text: str
+    llm_result: dict
     disccommseq: int
     trackno: str
 
@@ -40,3 +45,14 @@ async def search_song(input_data: SimilarRequest):
     result = await SearchService.search_similar_song(key='vibe', disccommseq=disccommseq, trackno=trackno)
     logging.info(f'''소요시간: {time.time()-start}''')
     return result
+
+@router.post("/analyze")
+async def analyze_result(input_data: AnalyzeRequest):
+    text = input_data.text
+    llm_result = input_data.llm_result
+    disccommseq = input_data.disccommseq
+    trackno = input_data.trackno
+
+    result = await SearchService.search_analyze_result(text=text, llm_result=llm_result, disccommseq=disccommseq, trackno=trackno)
+    return result
+

@@ -31,7 +31,6 @@ class SearchService:
         "vibe": 10000,
         "lyrics": 5000,
         "lyrics_summary": 5000
-
     }
     _batch_size = 1000
     _priority = {
@@ -297,3 +296,9 @@ class SearchService:
         except Exception as e:
             logging.error(e)
             return {'similar_tracks': []}
+        
+    @staticmethod
+    async def search_analyze_result(text, llm_result, disccommseq, trackno):
+        # song_info = disccommseq, trackno
+        song_info="성시경_내게오는길"
+        return MuseLLM.get_reason(text=text, llm_result=llm_result, song_info=song_info)
