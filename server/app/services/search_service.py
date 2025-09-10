@@ -17,6 +17,7 @@ import io
 class SearchService:
     # 스레드 풀 설정 (동시 사용자 대응)
     _executor = ThreadPoolExecutor(max_workers=16)  # CPU 코어 * 2
+    _query_executor = ThreadPoolExecutor(max_workers=8)  # CPU 코어 * 2
     _index_mapping = {
         "artist": "muse_artist",
         "title": "muse_title",             
@@ -43,6 +44,85 @@ class SearchService:
         
     }
     
+    @staticmethod
+    async def _process_batch(key: str, query_text: str, batch_idx_list: list, batch_dist_list: list) -> dict:
+        """배치 단위로 곡 정보를 처리하는 비동기 메서드"""
+        batched_dict = {
+            batch_idx_list[j]: batch_dist_list[j]
+            for j in range(len(batch_idx_list))
+        }
+        
+        # 동기 함수를 비동기로 실행
+        loop = asyncio.get_event_loop()
+        song_info_dict = await loop.run_in_executor(
+            SearchService._query_executor,
+            SearchDAO.get_song_batch_info,
+            key,
+            batch_idx_list
+        )
+        
+        if not song_info_dict:
+            return {}
+        
+        disc_track_pairs = [(song_info['disccommseq'], song_info['trackno']) 
+                          for _, song_info in song_info_dict.items()]
+        
+        song_info_idx = {}
+        for idx, song_info in song_info_dict.items():
+            disc_track_key = f"{song_info['disccommseq']}_{song_info['trackno']}"
+            if disc_track_key not in song_info_idx:
+                song_info_idx[disc_track_key] = []
+            song_info_idx[disc_track_key].append(idx)
+        
+        # 병렬로 메타데이터와 mood 정보 가져오기
+        song_meta_dict_task = loop.run_in_executor(
+            SearchService._query_executor,
+            SearchDAO.get_song_batch_meta,
+            disc_track_pairs
+        )
+        mood_value_dict_task = loop.run_in_executor(
+            SearchService._query_executor,
+            SearchDAO.get_song_mood_value,
+            disc_track_pairs
+        )
+        mood_dict_task = loop.run_in_executor(
+            SearchService._query_executor,
+            SearchDAO.get_mood_dict
+        )
+        
+        song_meta_dict, mood_value_dict, mood_dict = await asyncio.gather(
+            song_meta_dict_task,
+            mood_value_dict_task,
+            mood_dict_task
+        )
+        
+        batch_results = {}
+        for song_key, song_meta in song_meta_dict.items():
+            idx_list = song_info_idx[song_key]
+            song_meta['count'] = 1
+            song_meta['dis'] = (
+                0.0001 if key == 'artist' and song_meta.get('artist') and 
+                query_text.lower().replace(' ','').strip() in 
+                song_meta['artist'].lower().replace(' ','').strip()
+                else 0.0005 if key == 'title' and song_meta.get('song_name') and 
+                query_text.lower().replace(' ','').strip() in 
+                song_meta['song_name'].lower().replace(' ','').strip()
+                else min([float(batched_dict[idx]) for idx in idx_list])
+            )
+            song_meta['index_name'] = key
+            song_meta['main_mood'] = (
+                [mood_dict[mood] for mood in json.loads(mood_value_dict[song_key]['mood_list'])]
+                if song_key in mood_value_dict else []
+            )
+            song_meta['energy_level'] = (
+                ((mood_value_dict[song_key]['arousal']-1)/16 + 
+                 (mood_value_dict[song_key]['valence']-1)/16)*100
+                if song_key in mood_value_dict else 50.0
+            )
+            batch_results[song_key] = song_meta
+        
+        return batch_results
+
     @staticmethod
     def priority_score(index_name_set):
         """
@@ -203,41 +283,59 @@ class SearchService:
             
             t2 = time.time()   
             logging.info(f'''\t\tFAISS_{key}_{query_text} D, I 검색 완료: {t2-t1}''')
-            for i, (batch_idx_list, batch_dist_list) in enumerate(zip(batched_I, batched_D)):                   
-                batched_dict = { # idx: dis
-                    batch_idx_list[j]: batch_dist_list[j]
-                    for j in range(len(batch_idx_list))
-                }                
-                song_info_dict = SearchDAO.get_song_batch_info(key=key, idx_list=batch_idx_list)
-                # >> song_info_dict=:{ idx:{'disccommseq': "", 'trackno':""}}
-                if song_info_dict:
-                    disc_track_pairs = [(song_info['disccommseq'], song_info['trackno']) for _, song_info in song_info_dict.items()]         
-                    song_info_idx = {}           
-                    for idx, song_info in song_info_dict.items():
-                        if f'''{song_info['disccommseq']}_{song_info['trackno']}''' not in song_info_idx:
-                            song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''] = []
-                        song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''].append(idx)     
-                    t4_1 = time.time()
-                    song_meta_dict = SearchDAO.get_song_batch_meta(disc_track_pairs=disc_track_pairs)
-                    t4_2 = time.time()
-                    logging.info(f'''\t\t\t get_song_batch_meta: {t4_2-t4_1}''')
-                    mood_value_dict = SearchDAO.get_song_mood_value(disc_track_pairs=disc_track_pairs)                           
-                    mood_dict = SearchDAO.get_mood_dict()
+            # for i, (batch_idx_list, batch_dist_list) in enumerate(zip(batched_I, batched_D)):                   
+            #     batched_dict = { # idx: dis
+            #         batch_idx_list[j]: batch_dist_list[j]
+            #         for j in range(len(batch_idx_list))
+            #     }                
+            #     song_info_dict = SearchDAO.get_song_batch_info(key=key, idx_list=batch_idx_list)
+            #     # >> song_info_dict=:{ idx:{'disccommseq': "", 'trackno':""}}
+            #     if song_info_dict:
+            #         disc_track_pairs = [(song_info['disccommseq'], song_info['trackno']) for _, song_info in song_info_dict.items()]         
+            #         song_info_idx = {}           
+            #         for idx, song_info in song_info_dict.items():
+            #             if f'''{song_info['disccommseq']}_{song_info['trackno']}''' not in song_info_idx:
+            #                 song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''] = []
+            #             song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''].append(idx)     
+            #         t4_1 = time.time()
+            #         song_meta_dict = SearchDAO.get_song_batch_meta(disc_track_pairs=disc_track_pairs)
+            #         t4_2 = time.time()
+            #         logging.info(f'''\t\t\t get_song_batch_meta: {t4_2-t4_1}''')
+            #         mood_value_dict = SearchDAO.get_song_mood_value(disc_track_pairs=disc_track_pairs)                           
+            #         mood_dict = SearchDAO.get_mood_dict()
                     
-                    t4_3 = time.time()
-                    logging.info(f'''\t\t\t get_song_mood_value({len(disc_track_pairs)}): {t4_3-t4_2}''')
+            #         t4_3 = time.time()
+            #         logging.info(f'''\t\t\t get_song_mood_value({len(disc_track_pairs)}): {t4_3-t4_2}''')
                     
-                    for song_key, song_meta in song_meta_dict.items():                            
-                        idx_list = song_info_idx[song_key]                                                                                                                 
-                        song_meta['count'] = 1                    
-                        song_meta['dis'] =  0.0001 if key == 'artist' and song_meta['artist'] and query_text.lower().replace(' ','').strip() in song_meta['artist'].lower().replace(' ','').strip() else 0.0005 if key == 'title' and song_meta['song_name'] and query_text.lower().replace(' ','').strip() in song_meta['song_name'].lower().replace(' ','').strip() else min([float(batched_dict[idx]) for idx in idx_list])                                                
-                        song_meta['index_name'] = key
-                        song_meta['main_mood'] = [ mood_dict[mood] for mood in json.loads(mood_value_dict[song_key]['mood_list']) ] if song_key in mood_value_dict else []
-                        song_meta['energy_level'] = ((mood_value_dict[song_key]['arousal']-1)/16 + (mood_value_dict[song_key]['valence']-1)/16)*100 if song_key in mood_value_dict else 50.0
-                        results[f'''{song_key}'''] = song_meta      
-                    t4_4 = time.time()
-                    logging.info(f'''\t\t\t done: {t4_4-t4_3}''')                
+            #         for song_key, song_meta in song_meta_dict.items():                            
+            #             idx_list = song_info_idx[song_key]                                                                                                                 
+            #             song_meta['count'] = 1                    
+            #             song_meta['dis'] =  0.0001 if key == 'artist' and song_meta['artist'] and query_text.lower().replace(' ','').strip() in song_meta['artist'].lower().replace(' ','').strip() else 0.0005 if key == 'title' and song_meta['song_name'] and query_text.lower().replace(' ','').strip() in song_meta['song_name'].lower().replace(' ','').strip() else min([float(batched_dict[idx]) for idx in idx_list])                                                
+            #             song_meta['index_name'] = key
+            #             song_meta['main_mood'] = [ mood_dict[mood] for mood in json.loads(mood_value_dict[song_key]['mood_list']) ] if song_key in mood_value_dict else []
+            #             song_meta['energy_level'] = ((mood_value_dict[song_key]['arousal']-1)/16 + (mood_value_dict[song_key]['valence']-1)/16)*100 if song_key in mood_value_dict else 50.0
+            #             results[f'''{song_key}'''] = song_meta      
+            #         t4_4 = time.time()
+            #         logging.info(f'''\t\t\t done: {t4_4-t4_3}''')                
    
+            # 병렬 처리를 위한 태스크 생성
+            tasks = []
+            for batch_idx_list, batch_dist_list in zip(batched_I, batched_D):
+                tasks.append(SearchService._process_batch(key, query_text, batch_idx_list, batch_dist_list))
+            
+            # 이벤트 루프에서 비동기 함수 실행
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # 모든 배치를 병렬로 처리하고 결과 병합
+            batch_results = loop.run_until_complete(asyncio.gather(*tasks))
+            results = {}
+            for batch_result in batch_results:
+                results.update(batch_result)
+            
             t6 = time.time()   
             logging.info(f'''\tFAISS_{key}_{query_text} 검색 완료: {t6-t2}''')
             return (key, results)
