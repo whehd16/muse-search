@@ -356,6 +356,8 @@ class SearchService:
         # 괄호 안 내용 제거 (리메이크, 버전 정보 등)
         text = re.sub(r'\([^)]*\)', '', text)
         text = re.sub(r'\[[^\]]*\]', '', text)
+        # * 뒤에 오는 remix, ver, version 등의 문자 제거
+        text = re.sub(r'\*.*$', '', text, flags=re.IGNORECASE)
         # 특수문자 제거, 소문자 변환, 공백 정규화
         text = re.sub(r'[^\w\s가-힣]', '', text)
         text = ' '.join(text.lower().split())
