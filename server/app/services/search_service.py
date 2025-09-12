@@ -82,20 +82,29 @@ class SearchService:
             SearchDAO.get_song_batch_meta,
             disc_track_pairs
         )
+
         mood_value_dict_task = loop.run_in_executor(
             SearchService._query_executor,
             SearchDAO.get_song_mood_value,
             disc_track_pairs
         )
+
         mood_dict_task = loop.run_in_executor(
             SearchService._query_executor,
             SearchDAO.get_mood_dict
         )
+
+        bpm_value_dict_task = loop.run_in_executor(
+            SearchService._query_executor,
+            SearchDAO.get_song_bpm_value,
+            disc_track_pairs
+        )
         
-        song_meta_dict, mood_value_dict, mood_dict = await asyncio.gather(
+        song_meta_dict, mood_value_dict, mood_dict, bpm_value_dict = await asyncio.gather(
             song_meta_dict_task,
             mood_value_dict_task,
-            mood_dict_task
+            mood_dict_task,
+            bpm_value_dict_task
         )
         
         batch_results = {}
@@ -116,6 +125,7 @@ class SearchService:
                 [mood_dict[mood] for mood in json.loads(mood_value_dict[song_key]['mood_list'])]
                 if song_key in mood_value_dict else []
             )
+            song_meta['bpm'] = bpm_value_dict[song_key] if song_key in bpm_value_dict else 0
             song_meta['energy_level'] = (
                 ((mood_value_dict[song_key]['arousal']-1)/16 + 
                  (mood_value_dict[song_key]['valence']-1)/16)*100
