@@ -486,6 +486,20 @@ class SearchService:
         
     @staticmethod
     async def search_analyze_result(text, llm_result, disccommseq, trackno):
-        song_info = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)        
-        analyze_result = MuseLLM.get_reason(text=text, llm_result=llm_result, song_info=song_info)
-        return {'result': {'analyze': json.loads(analyze_result)['response']}} if analyze_result else {'result': {'analyze': []}}
+        try:
+            song_info = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)        
+            analyze_result = MuseLLM.get_reason(text=text, llm_result=llm_result, song_info=song_info)            
+
+            if analyze_result:
+                analyze_result = json.loads(analyze_result)
+                logging.info(analyze_result)
+                if 'response' in analyze_result:
+                    return {'result': {'analyze': analyze_result['response']}}
+                elif 'description' in analyze_result:
+                    return {'result': {'analyze': analyze_result['description']}}
+            else:
+                return {'result': {'analyze': []}}
+            
+        except Exception as e:
+            return {'result': {'analyze': []}}
+            
