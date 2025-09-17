@@ -185,3 +185,35 @@ class SearchDAO:
             return mood_value_dict
         else:
             return {}
+        
+    @staticmethod
+    def get_song_category():        
+        results, code = Database.execute_query(f"""
+            SELECT region, genre
+            FROM muse.tb_info_song_category_m
+            WHERE valid=1
+        """, fetchall=True)
+        if code == 200:
+            category_dict = {}
+            for region, genre in results:
+                if region not in category_dict:
+                    category_dict[region] = set()
+                category_dict[region].add(genre)
+            return category_dict
+        else:
+            return {}
+        
+    @staticmethod
+    def get_song_genre():        
+        results, code = Database.execute_query(f"""
+            SELECT genre
+            FROM muse.tb_info_song_category_m
+            GROUP BY genre
+        """, fetchall=True)
+        if code == 200:
+            genre_set = set()
+            for genre in results:
+                genre_set.add(genre[0])
+            return genre_set
+        else:
+            return set()

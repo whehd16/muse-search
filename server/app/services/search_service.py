@@ -143,6 +143,38 @@ class SearchService:
         """
         return max(SearchService._priority.get(v, 0) for v in index_name_set)
 
+    @staticmethod
+    def filter_category(region, genre):
+        category_dict, genre_set = SearchDAO.get_song_category(), SearchDAO.get_song_genre()
+        logging.info(f'''{category_dict}, {genre_set}''')
+        if region not in category_dict:
+            # 해외 ... 전세계 ...
+            if genre in genre_set:
+                return True, genre
+            return False, None
+        
+        if genre in category_dict[region]:
+            # 국내 전체
+            if region == '전체':
+                #OST, 어린이, ...
+                return True, genre
+            # 국내 힙합, 국내 재즈, 해외 재즈, ...
+            return True, f'''{region} {genre}'''
+        else:     
+            if genre in genre_set:
+                return True, genre                   
+            elif region == '전체':                
+                return False, None
+            else:
+                return True, region
+    
+        return f'''{region} {genre}'''
+
+        # if genre in category[region]:
+        #     return f'''{region} {genre}'''
+        # else:
+        
+        # return 'hello'
 
     @staticmethod
     async def search_text(text: str, mood: list, timeout: float = 30.0) -> Dict[str, List]:        
@@ -165,6 +197,16 @@ class SearchService:
             llm_results['year'] = []
         if 'popular' not in llm_results:
             llm_results['popular'] = False                
+        
+        llm_results['category'] = []
+
+        try:
+            for i in range(len(llm_results['genre'])):
+                code, category = SearchService.filter_category(region=llm_results['region'][i], genre=llm_results['genre'][i]) 
+                if code:
+                    llm_results['category'].append(category)
+        except Exception as e:
+            logging.error(e)
 
         logging.info(llm_results)
         search_coroutines = []
