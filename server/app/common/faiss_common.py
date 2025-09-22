@@ -59,6 +59,16 @@ class MuseFaiss:
         except Exception as e2:
             logging.error(f"Failed to load lyrics_summary backup index: {e2}")
 
+    try:
+        indices['album_name'] = faiss.read_index(f'{INDEX_PATH}/muse_album_name.index')
+        logging.info(f"Loaded album name index: {indices['album_name'].ntotal} vectors")
+    except Exception as e:
+        logging.warning(f"Failed to load album name index, trying backup: {e}")
+        try:
+            indices['album_name'] = faiss.read_index(f'{INDEX_PATH}/muse_album_name_backup.index')
+        except Exception as e2:
+            logging.error(f"Failed to load album name backup index: {e2}")
+
     @staticmethod
     def search(key: str, query_vector: np.ndarray, k: int = 100) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         """특정 인덱스에서 검색 수행"""
@@ -73,7 +83,7 @@ class MuseFaiss:
                 query_vector = query_vector.reshape(1, -1)
             
             D, I = index.search(query_vector.astype('float32'), k)                        
-            if key in ['artist', 'lyrics', 'title']:
+            if key in ['artist', 'lyrics', 'title', 'album_name']:
                 # logging.info(f'''threshold 적용 {key}''')
                 threshold = 0.9  # 예시 (L2 distance일 경우)
 
