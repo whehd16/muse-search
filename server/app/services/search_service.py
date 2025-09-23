@@ -484,7 +484,11 @@ class SearchService:
             if key == 'vibe':
                 embedding_results = SearchDAO.get_song_clap_embedding(key=key, disccommseq=disccommseq, trackno=trackno)
             elif key == 'lyrics_summary':
-                embedding_results = SearchDAO.get_song_clap_lyric_summary(key=key, disccommseq=disccommseq, trackno=trackno)
+                embedding_results = SearchDAO.get_song_clap_lyric_summary(key=key, disccommseq=disccommseq, trackno=trackno)                                
+                if not embedding_results:
+                    key = 'title'
+                    embedding_results=SearchDAO.get_song_bgem3_song_name(key=key, disccommseq=disccommseq, trackno=trackno)
+                    
             else:
                 embedding_results = []
             

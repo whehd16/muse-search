@@ -117,6 +117,18 @@ class SearchDAO:
             return [ result[3] for result in results ]
         else:
             return []
+        
+    @staticmethod
+    def get_song_bgem3_song_name(key, disccommseq, trackno):
+        results, code = Database.execute_query(f"""
+            SELECT disccommseq, trackno, song_name, song_name_embedding
+            FROM {SearchDAO._table_mapping[key]}
+            WHERE disccommseq = {disccommseq} AND trackno = '{trackno}'
+        """, fetchall=True)
+        if code == 200:
+            return [ result[3] for result in results ]
+        else:
+            return []
 
     @staticmethod
     def get_song_batch_meta(disc_track_pairs: List[tuple]):
