@@ -17,7 +17,6 @@ import json
 import math
 import io
 
-
 class SearchService:
     # 스레드 풀 설정 (동시 사용자 대응)
     _executor = ThreadPoolExecutor(max_workers=16)  # CPU 코어 * 2
@@ -160,7 +159,6 @@ class SearchService:
                 if song_key in mood_value_dict else 50.0
             )
             batch_results[song_key] = song_meta
-        
         return batch_results
 
     @staticmethod
