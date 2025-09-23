@@ -10,6 +10,7 @@ from services.faiss_service import FaissService
 from daos.search_dao import SearchDAO
 from collections import defaultdict
 from rapidfuzz import fuzz
+from copy import deepcopy
 import re
 import time
 import json
@@ -23,14 +24,16 @@ class SearchService:
     _query_executor = ThreadPoolExecutor(max_workers=8)  # CPU 코어 * 2
     _index_mapping = {
         "artist": "muse_artist",
+        "album_name": "muse_album_name",
         "title": "muse_title",             
         "vibe": "muse_vibe",
         "lyrics": "muse_lyrics",
-        "lyrics_summary": "muse_lyrics_summary"
+        "lyrics_summary": "muse_lyrics_summary"        
     }
     _rank_num = 5
     _k_mapping = {
         "title" : 5000,
+        "album_name": 100,
         "artist": 5000,
         "vibe": 10000,
         "lyrics": 5000,
@@ -40,6 +43,7 @@ class SearchService:
     _priority = {
         "vibe": 0,        
         "title": 1,
+        "album_name": 1,
         "artist": 2,   # title과 동급        
         "lyrics_summary": 3,   # 후순위
         "lyrics": 4,   # 후순위
@@ -56,26 +60,50 @@ class SearchService:
         
         # 동기 함수를 비동기로 실행
         loop = asyncio.get_event_loop()
-        song_info_dict = await loop.run_in_executor(
-            SearchService._query_executor,
-            SearchDAO.get_song_batch_info,
-            key,
-            batch_idx_list
-        )
+        if key == 'album_name':
+            # album_info_dict: { '앨범 번호': '인덱스' }            
+            album_info_dict = await loop.run_in_executor(
+                SearchService._query_executor,
+                SearchDAO.get_album_batch_info,
+                key,
+                batch_idx_list
+            )                        
+            # song_info_dict: { '인덱스': [{'disccomsseq' : '', 'trackno': ''}] }
+            song_info_dict = await loop.run_in_executor(
+                SearchService._query_executor,
+                SearchDAO.get_song_by_album_info,                
+                album_info_dict
+            )       
+
+        else:
+            # song_info_dict: { '인덱스': {'disccomsseq' : '', 'trackno': ''} }
+            song_info_dict = await loop.run_in_executor(
+                SearchService._query_executor,
+                SearchDAO.get_song_batch_info,
+                key,
+                batch_idx_list
+            )
         
         if not song_info_dict:
             return {}
+                
+        # disc_track_pairs = [(song_info['disccommseq'], song_info['trackno']) 
+        #                   for _, song_info in song_info_dict.items()]
         
-        disc_track_pairs = [(song_info['disccommseq'], song_info['trackno']) 
-                          for _, song_info in song_info_dict.items()]
-        
+        disc_track_pairs = []
+
+        for _, song_info_list in song_info_dict.items():
+            for song_info in song_info_list: 
+                disc_track_pairs.append((song_info['disccommseq'], song_info['trackno']))
+
         song_info_idx = {}
-        for idx, song_info in song_info_dict.items():
-            disc_track_key = f"{song_info['disccommseq']}_{song_info['trackno']}"
-            if disc_track_key not in song_info_idx:
-                song_info_idx[disc_track_key] = []
-            song_info_idx[disc_track_key].append(idx)
-        
+        for idx, song_info_list in song_info_dict.items():
+            for song_info in song_info_list:
+                disc_track_key = f"{song_info['disccommseq']}_{song_info['trackno']}"
+                if disc_track_key not in song_info_idx:
+                    song_info_idx[disc_track_key] = []
+                song_info_idx[disc_track_key].append(idx)
+                
         # 병렬로 메타데이터와 mood 정보 가져오기
         song_meta_dict_task = loop.run_in_executor(
             SearchService._query_executor,
@@ -181,23 +209,25 @@ class SearchService:
 
         t1 = time.time()
 
-
         llm_results = MuseLLM.get_request(text=text, mood=mood)        
-        if llm_results.get('case') == 12 or not llm_results or len(llm_results) == 1 or all(not llm_results[k] for k in llm_results if k not in {'case', 'llm_model'}):
-            llm_results = MuseLLM.get_request(text=text, mood=mood, llm_type='oss')            
-
+        
+        if llm_results.get('case') == 14 or not llm_results or len(llm_results) == 1 or all(not llm_results[k] for k in llm_results if k not in {'case', 'llm_model'}):
+            llm_results = MuseLLM.get_request(text=text, mood=mood, llm_type='oss')                    
         t2 = time.time()
-        logging.info(f'''LLM검색 완료({text}: {t2 - t1}''')
-
+        logging.info(f'''LLM검색 완료({text}: {t2 - t1}''')        
+        
         if 'artist' not in llm_results:
-            llm_results['artist'] = []
+            llm_results['artist'] = []        
         if 'title' not in llm_results:
             llm_results['title'] = []
+        if 'album_name' not in llm_results:
+            llm_results['album_name'] = []            
         if 'year' not in llm_results:
             llm_results['year'] = []
         if 'popular' not in llm_results:
             llm_results['popular'] = False                
         
+        #category 설정
         llm_results['category'] = []
 
         try:
@@ -206,9 +236,10 @@ class SearchService:
                 if code:
                     llm_results['category'].append(category)
         except Exception as e:
-            logging.error(e)
+            logging.error(e)                
 
         logging.info(llm_results)
+
         search_coroutines = []
         task_keys = []
         for key, values in llm_results.items():
@@ -239,8 +270,7 @@ class SearchService:
 
         merged = defaultdict(lambda: None)
 
-        for (key, group) in results_list:     
-            
+        for (key, group) in results_list:            
             for key, song_info in group.items():                
                 if merged[key] is None:
                     # 처음 등장하는 곡이면 복사
@@ -270,8 +300,8 @@ class SearchService:
         #     # logging.info(f'''{item["dis"]}, {item["count"]}, {item["artist"]}, {item["song_name"]}, {item['disc_comm_seq']} / {item['track_no']})''')
         #     print(f'''{item["dis"]}, {item["count"]}, {item["artist"]}, {item["song_name"]}, {item['disc_comm_seq']} / {item['track_no']})''')
         total_results = {
-            'year_list': llm_results['year'],
-            'popular': llm_results['popular'][0] if llm_results['popular'] else False,
+            'year_list': llm_results['year'] if 'year' in llm_results else [],
+            'popular': llm_results['popular'][0] if 'popular' in llm_results and llm_results['popular'] else False,
             'search_keyword': llm_results,
             'results': merged_list            
         }        
@@ -316,10 +346,12 @@ class SearchService:
         try:                
             t1 = time.time()
             query_vector = EmbeddingService.get_vector(key=key, text=query_text.lower().replace(' ',''))                       
-            if key not in ['artist', 'title', 'lyrics', 'lyrics_summary', 'vibe']:
+            if key not in ['artist', 'title', 'lyrics', 'lyrics_summary', 'vibe', 'album_name']:
                 return (key, {})
-            D, I = FaissService.search(key=key, query_vector=query_vector, k=SearchService._k_mapping[key])                                        
+        
             
+            D, I = FaissService.search(key=key, query_vector=query_vector, k=SearchService._k_mapping[key])                                        
+            logging.info(f''' FAISS SEARCH: {key}, {query_text} {D} {I}''')
             if D is None or I is None:
                 return (key, {})                
 
@@ -395,7 +427,7 @@ class SearchService:
             return (key, results)
             
         except Exception as e:
-            print(f"Error in FAISS search for {key}: {e}")
+            logging.error(f"Error in FAISS search for {key}: {e}")
             return (key, {})
         
     @staticmethod

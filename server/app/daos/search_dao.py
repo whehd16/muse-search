@@ -6,6 +6,7 @@ import logging
 class SearchDAO:
     _table_mapping ={
         'artist': 'tb_embedding_bgem3_artist_h',
+        'album_name': 'tb_embedding_bgem3_album_name_h',
         'title': 'tb_embedding_bgem3_song_name_h',
         'vibe' : 'tb_embedding_clap_h',
         'lyrics': 'tb_embedding_bgem3_lyrics_slide_h',
@@ -23,11 +24,59 @@ class SearchDAO:
         """, fetchall=True)
         if code == 200:
             for result in results:
-                batch_info[result[0]] = {
+                batch_info[result[0]] = [{
                     'disccommseq': result[1],
                     'trackno': result[2]
-                }
+                }]
         return batch_info
+    
+    @staticmethod
+    def get_song_by_album_info(album_info_dict):
+        batch_info = {}
+        conditions = []
+        
+        for disccommseq, _ in album_info_dict.items():
+            conditions.append(f"(DISC_COMM_SEQ={disccommseq})")
+        
+        where_clause =" OR ".join(conditions)
+        results = OracleDB.execute_query(f"""
+            SELECT DISC_COMM_SEQ, TRACK_NO 
+            FROM MIBIS.MI_SONG_INFO
+            WHERE {where_clause}
+        """)
+        
+        if results:
+            for result in results:                
+                idx = album_info_dict[result['disc_comm_seq']]['idx']
+                
+                if idx not in batch_info:
+                    batch_info[idx] = []                
+                batch_info[idx].append(
+                    {
+                        'disccommseq' : result['disc_comm_seq'], 
+                        'trackno': result['track_no'].strip()
+                    }
+                )
+        return batch_info
+
+    @staticmethod
+    def get_album_batch_info(key: str, idx_list: List):
+        batch_info = {}   
+        logging.info(f'''{key}, {idx_list}''')
+        results, code = Database.execute_query(f"""
+            SELECT idx, disccommseq
+            FROM {SearchDAO._table_mapping[key]}
+            WHERE idx in ({','.join(list(map(str, idx_list)))})
+        """, fetchall=True)
+        if code == 200:
+            for result in results:
+                # batch_info[result[0]] = {
+                #     'disccommseq': result[1]                    
+                # }
+                batch_info[result[1]] = {
+                    'idx': result[0]
+                }
+        return batch_info 
 
     @staticmethod
     def get_song_info(key: str, idx: int) -> Dict:
