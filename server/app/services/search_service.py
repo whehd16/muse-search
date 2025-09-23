@@ -476,7 +476,7 @@ class SearchService:
             results = {}
             # 타겟 곡의 메타 정보 가져오기
             start=time.time()        
-            target_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)``            
+            target_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)          
             target_artist = target_meta.get('artist', '')
             target_title = target_meta.get('song_name', '')
             
