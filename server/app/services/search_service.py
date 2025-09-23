@@ -475,10 +475,8 @@ class SearchService:
         try:
             results = {}
             # 타겟 곡의 메타 정보 가져오기
-            start=time.time()
-            logging.info(f'''\t1.{key}: {time.time()-start}  ''')
-            target_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)
-            logging.info(f'''\t1.1.{key}: {time.time()-start}  ''')
+            start=time.time()        
+            target_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)``            
             target_artist = target_meta.get('artist', '')
             target_title = target_meta.get('song_name', '')
             
@@ -489,14 +487,14 @@ class SearchService:
                 embedding_results = SearchDAO.get_song_clap_lyric_summary(key=key, disccommseq=disccommseq, trackno=trackno)
             else:
                 embedding_results = []
-            logging.info(f'''\t2.{key}: {time.time()-start}  ''')
+            
             embedding_results = [ np.atleast_2d(np.load(io.BytesIO(embedding_result), allow_pickle=True))[0] for embedding_result in embedding_results]
             batched_I = []
             
             for embedding_result in embedding_results:
                 D, I = FaissService.search(key=key, query_vector=embedding_result, k=100)                                                    
                 batched_I.append([int(idx)+1 for idx in I[0]])
-            logging.info(f'''\t3.{key}: {time.time()-start}  ''')
+            
             for _, batch_idx_list in enumerate(batched_I):
                 song_info_dict = SearchDAO.get_song_batch_info(key=key, idx_list=batch_idx_list)
                 if song_info_dict:
@@ -522,7 +520,7 @@ class SearchService:
                                 'meta': song_meta
                             }             
                         results[song_key]['count'] += 1         
-            logging.info(f'''\t4.\t{key}: {time.time()-start}  ''')
+            
             # 정확히 같은 disc_id, track_id 제거
             if f'''{disccommseq}_{trackno}''' in results:
                 del results[f'''{disccommseq}_{trackno}''']
@@ -564,7 +562,7 @@ class SearchService:
                         'mp3_path_flag': meta['mp3_path_flag']
                     })
                     seen_songs.append((current_artist, current_title))
-            logging.info(f'''\t5.{key}: {time.time()-start}  ''')
+            
             return {'similar_tracks': final_tracks}
         except Exception as e:
             logging.error(e)
