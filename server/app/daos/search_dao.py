@@ -2,6 +2,7 @@ from common.mysql_common import Database
 from common.oracle_common import OracleDB
 from typing import List, Dict
 import logging
+import time
 
 class SearchDAO:
     _table_mapping ={
@@ -58,7 +59,6 @@ class SearchDAO:
 
     @staticmethod
     def get_song_batch_meta(disc_track_pairs: List[tuple]):
-
         if not disc_track_pairs:
             return {}
 
@@ -96,7 +96,6 @@ class SearchDAO:
             
             key = f'''{row['disc_comm_seq']}_{row['track_no']}'''
             song_meta_dict[key] = row
-        
         return song_meta_dict
 
     @staticmethod
@@ -134,17 +133,18 @@ class SearchDAO:
     def get_song_mood_value(disc_track_pairs: List[tuple]):
         if not disc_track_pairs:
             return {}
-        
-        conditions = []
-        for disccommseq, trackno in disc_track_pairs:
-            conditions.append(f"(disccommseq={disccommseq} AND trackno='{trackno}')")
-        
-        where_clause = " OR ".join(conditions)
-        results, code = Database.execute_query(f"""
+
+        # (%s, %s), (%s, %s) 형태의 placeholder 생성
+        placeholders = ", ".join(["(%s, %s)"] * len(disc_track_pairs))
+        query = f"""
             SELECT disccommseq, trackno, mood_list, arousal, valence
             FROM muse.tb_info_song_mood_h
-            WHERE {where_clause}
-        """, fetchall=True)
+            WHERE (disccommseq, trackno) IN ({placeholders})
+        """
+        
+        params = [item for pair in disc_track_pairs for item in pair]
+
+        results, code = Database.execute_query(query, params=params, fetchall=True)
         
         if code == 200:
             mood_value_dict = {}
@@ -164,16 +164,15 @@ class SearchDAO:
         if not disc_track_pairs:
             return {}
         
-        conditions = []
-        for disccommseq, trackno in disc_track_pairs:
-            conditions.append(f"(disccommseq={disccommseq} AND trackno='{trackno}')")
-        
-        where_clause = " OR ".join(conditions)
-        results, code = Database.execute_query(f"""
+        placeholders = ", ".join(["(%s, %s)"] * len(disc_track_pairs))
+        query = f"""
             SELECT disccommseq, trackno, bpm
             FROM muse.tb_info_song_bpm_h
-            WHERE {where_clause}
-        """, fetchall=True)
+            WHERE (disccommseq, trackno) IN ({placeholders})
+        """
+
+        params = [item for pair in disc_track_pairs for item in pair]
+        results, code = Database.execute_query(query, params, fetchall=True)
         
         if code == 200:
             mood_value_dict = {}
