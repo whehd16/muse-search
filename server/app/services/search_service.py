@@ -469,103 +469,16 @@ class SearchService:
         except ImportError:
             # rapidfuzz가 없으면 정규화 매칭만 사용
             return False
-    
-    @staticmethod
-    async def search_similar_song_lyric(key, disccommseq, trackno):
-        try:
-            results = {}            
-            # 타겟 곡의 메타 정보 가져오기
-            target_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)
-            target_artist = target_meta.get('artist', '')
-            target_title = target_meta.get('song_name', '')
-            
-            embedding_results = SearchDAO.get_song_clap_lyric_summary(key=key, disccommseq=disccommseq, trackno=trackno)
-            embedding_results = [ np.atleast_2d(np.load(io.BytesIO(embedding_result), allow_pickle=True))[0] for embedding_result in embedding_results]
-            batched_I = []
-            
-            for embedding_result in embedding_results:
-                D, I = FaissService.search(key=key, query_vector=embedding_result, k=100)                                                    
-                batched_I.append([int(idx)+1 for idx in I[0]])
-            
-            for _, batch_idx_list in enumerate(batched_I):
-                song_info_dict = SearchDAO.get_song_batch_info(key=key, idx_list=batch_idx_list)
-                if song_info_dict:
-                    disc_track_pairs = []
-                    for _, song_info_list in song_info_dict.items():
-                        for song_info in song_info_list:
-                            disc_track_pairs.append((song_info['disccommseq'], song_info['trackno']))
-                    #disc_track_pairs = [(song_info['disccommseq'], song_info['trackno']) for _, song_info in song_info_dict.items()]         
-
-                    song_info_idx = {}    
-                    
-                    for idx, song_info_list in song_info_dict.items():
-                        for song_info in song_info_list:
-                            if f'''{song_info['disccommseq']}_{song_info['trackno']}''' not in song_info_idx:
-                                song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''] = []
-                            song_info_idx [f'''{song_info['disccommseq']}_{song_info['trackno']}'''].append(idx)                         
-                    song_meta_dict = SearchDAO.get_song_batch_meta(disc_track_pairs=disc_track_pairs)                                        
-                    for song_key, song_meta in song_meta_dict.items():      
-                        
-                        if song_key not in results:
-                            results[song_key] = {
-                                'count': 0,
-                                'meta': song_meta
-                            }             
-                        results[song_key]['count'] += 1         
-            
-            # 정확히 같은 disc_id, track_id 제거
-            if f'''{disccommseq}_{trackno}''' in results:
-                del results[f'''{disccommseq}_{trackno}''']
-                
-            sorted_results = sorted(results.items(), key=lambda x: x[1]['count'], reverse=True)
-            
-            # 중복 제거 로직 추가
-            final_tracks = []
-            seen_songs = []  # (artist, title) 튜플 저장
-            
-            for song_key, song_data in sorted_results:
-                if len(final_tracks) >= 5:
-                    break
-                    
-                meta = song_data['meta']
-                current_artist = meta['artist']
-                current_title = meta['song_name']
-                
-                # 타겟 곡과 중복 체크 (타겟 곡의 다른 버전들 제외)
-                if SearchService._is_duplicate_song(current_artist, current_title, 
-                                                   target_artist, target_title):
-                    continue
-                
-                # 이미 추가된 곡들과 중복 체크
-                is_duplicate = False
-                for seen_artist, seen_title in seen_songs:
-                    if SearchService._is_duplicate_song(current_artist, current_title, 
-                                                       seen_artist, seen_title):
-                        is_duplicate = True
-                        break
-                
-                if not is_duplicate:
-                    final_tracks.append({
-                        'disc_id': meta['disc_comm_seq'],
-                        'track_id': meta['track_no'],
-                        'title': current_title,
-                        'artist': current_artist,
-                        'jpg_file_name': meta['jpg_file_name'],
-                        'mp3_path_flag': meta['mp3_path_flag']
-                    })
-                    seen_songs.append((current_artist, current_title))
-
-            return {'similar_tracks': final_tracks}
-        except Exception as e:
-            logging.error(e)
-            return {'similar_tracks': []}
 
     @staticmethod
     async def search_similar_song(key, disccommseq, trackno):
         try:
             results = {}
             # 타겟 곡의 메타 정보 가져오기
+            start=time.time()
+            logging.info(f'''\t1.{key}: {time.time()-start}  ''')
             target_meta = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)
+            logging.info(f'''\t1.1.{key}: {time.time()-start}  ''')
             target_artist = target_meta.get('artist', '')
             target_title = target_meta.get('song_name', '')
             
@@ -576,14 +489,14 @@ class SearchService:
                 embedding_results = SearchDAO.get_song_clap_lyric_summary(key=key, disccommseq=disccommseq, trackno=trackno)
             else:
                 embedding_results = []
-            
+            logging.info(f'''\t2.{key}: {time.time()-start}  ''')
             embedding_results = [ np.atleast_2d(np.load(io.BytesIO(embedding_result), allow_pickle=True))[0] for embedding_result in embedding_results]
             batched_I = []
             
             for embedding_result in embedding_results:
                 D, I = FaissService.search(key=key, query_vector=embedding_result, k=100)                                                    
                 batched_I.append([int(idx)+1 for idx in I[0]])
-            
+            logging.info(f'''\t3.{key}: {time.time()-start}  ''')
             for _, batch_idx_list in enumerate(batched_I):
                 song_info_dict = SearchDAO.get_song_batch_info(key=key, idx_list=batch_idx_list)
                 if song_info_dict:
@@ -609,7 +522,7 @@ class SearchService:
                                 'meta': song_meta
                             }             
                         results[song_key]['count'] += 1         
-            
+            logging.info(f'''\t4.\t{key}: {time.time()-start}  ''')
             # 정확히 같은 disc_id, track_id 제거
             if f'''{disccommseq}_{trackno}''' in results:
                 del results[f'''{disccommseq}_{trackno}''']
@@ -651,7 +564,7 @@ class SearchService:
                         'mp3_path_flag': meta['mp3_path_flag']
                     })
                     seen_songs.append((current_artist, current_title))
-
+            logging.info(f'''\t5.{key}: {time.time()-start}  ''')
             return {'similar_tracks': final_tracks}
         except Exception as e:
             logging.error(e)

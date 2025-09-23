@@ -41,7 +41,7 @@ async def search_similar_song(input_data: SimilarRequest):
     disccommseq = input_data.disccommseq
     trackno = input_data.trackno
     start = time.time()
-    logging.info(f'''Find Similar song lyric: {disccommseq}_{trackno} ''')
+    logging.info(f'''Find Similar song vibe: {disccommseq}_{trackno} ''')
     result = await SearchService.search_similar_song(key='vibe', disccommseq=disccommseq, trackno=trackno)
     logging.info(f'''소요시간: {time.time()-start}''')
     return result
