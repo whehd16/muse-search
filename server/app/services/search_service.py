@@ -287,31 +287,31 @@ class SearchService:
         
         # dict → list 변환
         merged_list = list(merged.values())
-        # logging.info(merged_list)
-        # count 기준으로 내림차순 정렬        
-        merged_list.sort(key=lambda x: x["dis"], reverse=False)        
-        # merged_list.sort(key=lambda x: ( -len(x["index_name_set"]), SearchService.priority_score(x["index_name_set"]), x["dis"]))
-        
-        # merged_list.sort(key=lambda x: len(x[""], reverse=False)
 
-        # for item in merged_list[:100]:
-        #     # logging.info(f'''{item["dis"]}, {item["count"]}, {item["artist"]}, {item["song_name"]}, {item['disc_comm_seq']} / {item['track_no']})''')
-        #     print(f'''{item["dis"]}, {item["count"]}, {item["artist"]}, {item["song_name"]}, {item['disc_comm_seq']} / {item['track_no']})''')
+        merged_list.sort(key=lambda x: x["dis"], reverse=False)        
+        
+        total_dict = {}
+
+        for song_dict in merged_list:
+            song_key_artist = song_dict['artist'].lower().replace(' ','').strip() if song_dict['artist'] else ''
+            song_key_title = song_dict['song_name'].lower().replace(' ','').strip() if song_dict['song_name'] else ''
+            song_key = f'''{song_key_artist}_{song_key_title} '''
+            if song_key not in total_dict:
+                total_dict[song_key] = deepcopy(song_dict)
+                continue
+            if total_dict[song_key]['hit_year']:
+               continue
+            elif song_dict['hit_year']:
+                total_dict[song_key] = deepcopy(song_dict)
+
+        total_list = [ v for _, v in total_dict.items() ]           
+
         total_results = {
             'year_list': llm_results['year'] if 'year' in llm_results else [],
             'popular': llm_results['popular'][0] if 'popular' in llm_results and llm_results['popular'] else False,
             'search_keyword': llm_results,
-            'results': merged_list            
+            'results': total_list
         }        
-        
-        # try:
-        #     select_reasons = json.loads(MuseLLM.get_reason(text=text, total_results=total_results, rank=SearchService._rank_num))           
-        #     select_reasons = select_reasons['response'] if 'response' in select_reasons else []
-            
-        #     for rank in range(SearchService._rank_num):
-        #         total_results['results'][rank]['select_reason'] = select_reasons[rank]
-        # except Exception as e:
-        #     print(e)
         
         return total_results
     
@@ -366,42 +366,7 @@ class SearchService:
                 batched_I.append([ int(I[0][idx])+1 for idx in range(i, min(len(I[0]), i+SearchService._batch_size))])                                
                 batched_D.append([ float(D[0][idx]) for idx in range(i, min(len(I[0]), i+SearchService._batch_size))])                            
             
-            t2 = time.time()   
-            # logging.info(f'''\t\tFAISS_{key}_{query_text} D, I 검색 완료: {t2-t1}''')
-            # for i, (batch_idx_list, batch_dist_list) in enumerate(zip(batched_I, batched_D)):                   
-            #     batched_dict = { # idx: dis
-            #         batch_idx_list[j]: batch_dist_list[j]
-            #         for j in range(len(batch_idx_list))
-            #     }                
-            #     song_info_dict = SearchDAO.get_song_batch_info(key=key, idx_list=batch_idx_list)
-            #     # >> song_info_dict=:{ idx:{'disccommseq': "", 'trackno':""}}
-            #     if song_info_dict:
-            #         disc_track_pairs = [(song_info['disccommseq'], song_info['trackno']) for _, song_info in song_info_dict.items()]         
-            #         song_info_idx = {}           
-            #         for idx, song_info in song_info_dict.items():
-            #             if f'''{song_info['disccommseq']}_{song_info['trackno']}''' not in song_info_idx:
-            #                 song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''] = []
-            #             song_info_idx[f'''{song_info['disccommseq']}_{song_info['trackno']}'''].append(idx)     
-            #         t4_1 = time.time()
-            #         song_meta_dict = SearchDAO.get_song_batch_meta(disc_track_pairs=disc_track_pairs)
-            #         t4_2 = time.time()
-            #         logging.info(f'''\t\t\t get_song_batch_meta: {t4_2-t4_1}''')
-            #         mood_value_dict = SearchDAO.get_song_mood_value(disc_track_pairs=disc_track_pairs)                           
-            #         mood_dict = SearchDAO.get_mood_dict()
-                    
-            #         t4_3 = time.time()
-            #         logging.info(f'''\t\t\t get_song_mood_value({len(disc_track_pairs)}): {t4_3-t4_2}''')
-                    
-            #         for song_key, song_meta in song_meta_dict.items():                            
-            #             idx_list = song_info_idx[song_key]                                                                                                                 
-            #             song_meta['count'] = 1                    
-            #             song_meta['dis'] =  0.0001 if key == 'artist' and song_meta['artist'] and query_text.lower().replace(' ','').strip() in song_meta['artist'].lower().replace(' ','').strip() else 0.0005 if key == 'title' and song_meta['song_name'] and query_text.lower().replace(' ','').strip() in song_meta['song_name'].lower().replace(' ','').strip() else min([float(batched_dict[idx]) for idx in idx_list])                                                
-            #             song_meta['index_name'] = key
-            #             song_meta['main_mood'] = [ mood_dict[mood] for mood in json.loads(mood_value_dict[song_key]['mood_list']) ] if song_key in mood_value_dict else []
-            #             song_meta['energy_level'] = ((mood_value_dict[song_key]['arousal']-1)/16 + (mood_value_dict[song_key]['valence']-1)/16)*100 if song_key in mood_value_dict else 50.0
-            #             results[f'''{song_key}'''] = song_meta      
-            #         t4_4 = time.time()
-            #         logging.info(f'''\t\t\t done: {t4_4-t4_3}''')                
+            t2 = time.time()                
    
             # 병렬 처리를 위한 태스크 생성
             tasks = []
