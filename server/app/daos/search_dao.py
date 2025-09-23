@@ -105,6 +105,18 @@ class SearchDAO:
             return [ result[3] for result in results ]
         else:
             return []
+        
+    @staticmethod
+    def get_song_clap_lyric_summary(key, disccommseq, trackno):
+        results, code = Database.execute_query(f"""
+            SELECT disccommseq, trackno, summary_num, embedding_result
+            FROM {SearchDAO._table_mapping[key]}
+            WHERE disccommseq = {disccommseq} AND trackno = '{trackno}'
+        """, fetchall=True)
+        if code == 200:
+            return [ result[3] for result in results ]
+        else:
+            return []
 
     @staticmethod
     def get_song_batch_meta(disc_track_pairs: List[tuple]):

@@ -37,12 +37,22 @@ async def search_song(input_data: TextRequest):
     return result
 
 @router.post("/similar")
-async def search_song(input_data: SimilarRequest):
+async def search_similar_song(input_data: SimilarRequest):
     disccommseq = input_data.disccommseq
     trackno = input_data.trackno
     start = time.time()
-    logging.info(f'''Find Similar: {disccommseq}_{trackno} ''')
+    logging.info(f'''Find Similar song lyric: {disccommseq}_{trackno} ''')
     result = await SearchService.search_similar_song(key='vibe', disccommseq=disccommseq, trackno=trackno)
+    logging.info(f'''소요시간: {time.time()-start}''')
+    return result
+
+@router.post("/similar_lyric")
+async def search_similar_song_lyric(input_data: SimilarRequest):
+    disccommseq = input_data.disccommseq
+    trackno = input_data.trackno
+    start = time.time()
+    logging.info(f'''Find Similar song lyric: {disccommseq}_{trackno} ''')
+    result = await SearchService.search_similar_song(key='lyrics_summary', disccommseq=disccommseq, trackno=trackno)
     logging.info(f'''소요시간: {time.time()-start}''')
     return result
 
