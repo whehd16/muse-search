@@ -293,6 +293,8 @@ class SearchService:
         total_dict = {}
 
         for song_dict in merged_list:
+            if len(total_dict) >= 500:
+                break
             song_key_artist = song_dict['artist'].lower().replace(' ','').strip() if song_dict['artist'] else ''
             song_key_title = song_dict['song_name'].lower().replace(' ','').strip() if song_dict['song_name'] else ''
             song_key = f'''{song_key_artist}_{song_key_title} '''
