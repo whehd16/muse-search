@@ -32,7 +32,7 @@ class SearchService:
     _rank_num = 5
     _k_mapping = {
         "title" : 5000,
-        "album_name": 100,
+        "album_name": 1000,
         "artist": 5000,
         "vibe": 10000,
         "lyrics": 5000,
@@ -160,7 +160,7 @@ class SearchService:
                  (mood_value_dict[song_key]['valence']-1)/16)*100
                 if song_key in mood_value_dict else 50.0
             )
-            batch_results[song_key] = song_meta
+            batch_results[song_key] = song_meta            
         return batch_results
 
     @staticmethod
