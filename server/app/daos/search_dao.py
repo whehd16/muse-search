@@ -17,7 +17,7 @@ class SearchDAO:
     @staticmethod
     def get_song_batch_info(key: str, idx_list: List):
         batch_info = {}        
-        logging.info(f'''{key}, {idx_list}''')
+        # logging.info(f'''{key}, {idx_list}''')
         results, code = Database.execute_query(f"""
             SELECT idx, disccommseq, trackno
             FROM {SearchDAO._table_mapping[key]}
@@ -63,7 +63,7 @@ class SearchDAO:
     @staticmethod
     def get_album_batch_info(key: str, idx_list: List):
         batch_info = {}   
-        logging.info(f'''{key}, {idx_list}''')
+        # logging.info(f'''{key}, {idx_list}''')
         results, code = Database.execute_query(f"""
             SELECT idx, disccommseq
             FROM {SearchDAO._table_mapping[key]}

@@ -148,7 +148,7 @@ class SearchService:
                 query_text.lower().replace(' ','').strip() in 
                 song_meta['song_name'].lower().replace(' ','').strip()
                 else min([float(batched_dict[idx]) for idx in idx_list])
-            )
+            )            
             song_meta['index_name'] = key
             song_meta['main_mood'] = (
                 [mood_dict[mood] for mood in json.loads(mood_value_dict[song_key]['mood_list'])]
@@ -276,8 +276,8 @@ class SearchService:
 
         merged = defaultdict(lambda: None)
 
-        for (key, group) in results_list:            
-            for key, song_info in group.items():                
+        for (key, group) in results_list:                
+            for key, song_info in group.items():                                
                 if merged[key] is None:
                     # 처음 등장하는 곡이면 복사
                     merged[key] = song_info.copy()
@@ -285,7 +285,7 @@ class SearchService:
                 else:                                        
                     merged[key]["count"] += 1
                     if song_info.get("index_name") in merged[key]["index_name_set"]:
-                        merged[key]["dis"] /= 2
+                        merged[key]["dis"] = min(merged[key]["dis"] / 2, song_info.get("dis") / 2)                        
                     else:
                         merged[key]["dis"] *= song_info.get("dis", 0.0)
                         merged[key]["index_name_set"].add(song_info.get("index_name"))
@@ -361,7 +361,7 @@ class SearchService:
         
             
             D, I = FaissService.search(key=key, query_vector=query_vector, k=SearchService._k_mapping[key])                                        
-            logging.info(f''' FAISS SEARCH: {key}, {query_text} {D} {I}''')
+            # logging.info(f''' FAISS SEARCH: {key}, {query_text} {D} {I}''')
             if D is None or I is None:
                 return (key, {})                
 
