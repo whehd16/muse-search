@@ -138,13 +138,13 @@ class SearchService:
             idx_list = song_info_idx[song_key]
             song_meta['count'] = 1
             song_meta['dis'] = (
-                0.0001 if key == 'artist' and song_meta.get('artist') and 
+                0.00001 if key == 'artist' and song_meta.get('artist') and 
                 query_text.lower().replace(' ','').strip() in 
                 song_meta['artist'].lower().replace(' ','').strip()
-                else 0.0002 if key == 'album_name' and song_meta.get('disc_name') and 
+                else 0.02 if key == 'album_name' and song_meta.get('disc_name') and 
                 query_text.lower().replace(' ','').strip() in 
                 song_meta['disc_name'].lower().replace(' ','').strip()
-                else 0.0005 if key == 'title' and song_meta.get('song_name') and 
+                else 0.05 if key == 'title' and song_meta.get('song_name') and 
                 query_text.lower().replace(' ','').strip() in 
                 song_meta['song_name'].lower().replace(' ','').strip()
                 else min([float(batched_dict[idx]) for idx in idx_list])
