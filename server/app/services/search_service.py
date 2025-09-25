@@ -39,14 +39,13 @@ class SearchService:
         "lyrics_summary": 5000
     }
     _batch_size = 1000
-    _priority = {
-        "vibe": 0,        
-        "title": 1,
-        "album_name": 1,
-        "artist": 2,   # title과 동급        
+    _priority = {        
+        "title": 0,
+        "album_name": 0,
+        "artist": 1,   # title과 동급        
+        "vibe": 2,        
         "lyrics_summary": 3,   # 후순위
-        "lyrics": 4,   # 후순위
-        
+        "lyrics": 4,   # 후순위        
     }
     
     @staticmethod
@@ -228,6 +227,12 @@ class SearchService:
         #category 설정
         llm_results['category'] = []
 
+        # llm_results = {
+        #     'album_name': ['케이팝데몬헌터스'],
+        #     'year': [],
+        #     'popular': False
+        # }
+
         try:
             for i in range(len(llm_results['genre'])):
                 code, category = SearchService.filter_category(region=llm_results['region'][i], genre=llm_results['genre'][i]) 
@@ -288,7 +293,8 @@ class SearchService:
         # dict → list 변환
         merged_list = list(merged.values())
 
-        merged_list.sort(key=lambda x: x["dis"], reverse=False)        
+        merged_list.sort(key=lambda x: x["dis"], reverse=False)     
+        # merged_list.sort(key=lambda x: (SearchService.priority_score(x["index_name_set"]), x["dis"]), reverse=False)   
         
         total_dict = {}
 
@@ -346,8 +352,8 @@ class SearchService:
         try:                
             t1 = time.time()
             query_vector = EmbeddingService.get_vector(key=key, text=query_text.lower().replace(' ',''))                       
-            # if key not in ['artist', 'title', 'lyrics', 'lyrics_summary', 'vibe', 'album_name']:
-            if key not in ['artist', 'title', 'lyrics', 'lyrics_summary', 'vibe']:
+            if key not in ['artist', 'title', 'lyrics', 'lyrics_summary', 'vibe', 'album_name']:
+            # if key not in ['artist', 'title', 'lyrics', 'lyrics_summary', 'vibe']:
                 return (key, {})
         
             
