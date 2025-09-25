@@ -40,9 +40,11 @@ class MuseLLM:
         1. **쿼리에 명시된 정보만 추출** (추측 금지)
         2. **한글/영어 병기**: artist, title, album_name
         3. **album_name**:
+           • OST, 디즈니, 픽사, 지브리 등 앨범 시리즈는 artist와 album_name 모두에 포함
            • "앨범", "정규", "미니", "EP", "LP" 키워드가 명시적으로 있으면 album_name에만 포함
-           • 키워드가 없을 때: 두 단어 이상이면 앞부분을 album_name과 artist에, 뒷부분을 title에 분리
+           • 키워드가 없을 때: 사용자가 어느 필드인지 명확하지 않으면 관련 필드에 모두 포함
            • 예: "케이팝데몬헌터스 골든" → album_name: ["케이팝데몬헌터스"], artist: ["케이팝데몬헌터스"], title: ["골든"]
+           • 예: "디즈니 인어공주" → artist: ["디즈니", "Disney"], album_name: ["디즈니", "Disney", "인어공주", "The Little Mermaid"]
            • 기본값 []
         4. **popular**: "유명한", "히트곡" 언급시 [true]. 기본값 [false]
         5. **genre 선택지**: ["재즈", "힙합", "댄스", "락", "팝", "포크", "일렉", "R&B", "컨추리", "블루스", "메탈", "트로트", "크로스오버", "클래식", "어린이", "OST", "뉴에이지", "국악", "종교", "캐롤", "효과음"]
@@ -83,6 +85,8 @@ class MuseLLM:
         5. "아이유 Modern Times 앨범" → artist: ["아이유", "IU"], album_name: ["Modern Times", "모던 타임즈"]
         6. "이별 후 혼자 가사" → lyrics: ["이별 후 혼자"], lyrics_summary: ["being alone after breakup"]
         7. "케이팝데몬헌터스 골든" → artist: ["케이팝데몬헌터스", "K-POP Demon Hunters"], album_name: ["케이팝데몬헌터스", "K-POP Demon Hunters"], title: ["골든", "Golden"]
+        8. "디즈니 OST" → artist: ["디즈니", "Disney"], album_name: ["디즈니", "Disney"], genre: ["OST"]
+        9. "디즈니 인어공주 노래" → artist: ["디즈니", "Disney"], album_name: ["디즈니", "Disney", "인어공주", "The Little Mermaid"]
 
         JSON 형식으로만 응답하세요.
     """
