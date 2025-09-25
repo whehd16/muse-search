@@ -12,7 +12,7 @@ class MuseLLM:
 
         ## JSON 스키마
         {
-        "artist": [],     // 아티스트명 (한글/영어 병기)
+        "artist": [],     // 아티스트명 (한글/영어 병기, 소문자로만)
         "title": [],      // 곡명 또는 제목 키워드
         "album_name": [], // 앨범명 (한글/영어 병기) (default: [])
         "region": [],     // 지역 구분 배열 (region과 genre가 인덱스별로 1:1 매핑)
