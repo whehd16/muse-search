@@ -83,7 +83,7 @@ class MuseFaiss:
                 query_vector = query_vector.reshape(1, -1)
             
             D, I = index.search(query_vector.astype('float32'), k)                        
-            if key in ['artist', 'lyrics', 'title', 'album_name']:
+            if key in ['artist', 'lyrics', 'title']:
                 # logging.info(f'''threshold 적용 {key}''')
                 threshold = 0.9  # 예시 (L2 distance일 경우)
 

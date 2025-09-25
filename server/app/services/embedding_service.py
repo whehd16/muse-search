@@ -19,6 +19,9 @@ class EmbeddingService:
         'artist': {
             'embedding_model': 'bgem3'
         },
+        'album_name':{
+            'embedding_model': 'bgem3'
+        },
         'title': {
             'embedding_model': 'bgem3'
         },
