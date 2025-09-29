@@ -40,8 +40,8 @@ class MuseLLM:
         1. **쿼리에 명시된 정보만 추출** (추측 금지)
         2. **한글/영어 병기**: artist, title, album_name
         3. **album_name**:
-           • OST, 디즈니, 픽사, 지브리 등 앨범 시리즈는 artist와 album_name 모두에 포함
-           • "앨범", "정규", "미니", "EP", "LP" 키워드가 명시적으로 있으면 album_name에만 포함
+           • OST, 디즈니, 픽사, 지브리, 등 앨범 시리즈는 artist와 album_name 모두에 포함
+           • "앨범", "정규", "미니", "영화", "드라마" 키워드가 명시적으로 있으면 album_name에만 포함 
            • 키워드가 없을 때: 사용자가 어느 필드인지 명확하지 않으면 관련 필드에 모두 포함
            • 예: "케이팝데몬헌터스 골든" → album_name: ["케이팝데몬헌터스"], artist: ["케이팝데몬헌터스"], title: ["골든"]
            • 예: "디즈니 인어공주" → artist: ["디즈니", "Disney"], album_name: ["디즈니", "Disney", "인어공주", "The Little Mermaid"]
@@ -71,7 +71,7 @@ class MuseLLM:
         | 7 | 감정/상황 추천(추상적) | "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" | mood, vibe(상세 설명)|
         | 8 | 가수 + 감정/상황 추천 | "빌리 아일리시 노래 중에 슬플 때 기운나는 노래 추천해줘" | artist, mood, vibe(분위기만) |
         | 9 | 가사 검색 | "니가 없는 거리에는 가사 들어간 노래" | lyrics(니가 없는 거리에는), lyrics_summary(songs about empty streets without you) |
-        | 10 | 앨범 검색 | "버터플라이 앨범", "아이유 Modern Times 앨범" | album_name (+ artist 선택적) |
+        | 10 | 앨범 검색 | "버터플라이 앨범", "아이유 Modern Times 앨범", "영화 어벤져스의 노래" | album_name (+ artist 선택적) |
         | 11 | 앨범+조건 검색 | "Love Yourself 앨범에서 슬픈 노래" | album_name, mood/genre/vibe |
         | 12 | 상황별 센스있는 추천 | "배고플 때 듣는 노래" | title, mood, vibe(재치있는 분위기) |
         | 13 | 줄글에 대한 상황 요약 후 추천 | 라디오 사연, 기사 등과 같은 줄글 | title, mood, vibe |

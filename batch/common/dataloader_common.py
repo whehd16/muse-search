@@ -15,6 +15,7 @@ class MuseDataLoader:
         'bgem3_artist': 'artist_embedding',
         'bgem3_song_name': 'song_name_embedding',
         'bgem3_lyrics_slide': 'embedding_result',
+        'bgem3_lyrics_3_slide': 'embedding_result',
         'bgem3_album_name': 'album_name_embedding'
     }
 
