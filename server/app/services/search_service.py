@@ -27,6 +27,7 @@ class SearchService:
         "title": "muse_title",             
         "vibe": "muse_vibe",
         "lyrics": "muse_lyrics",
+        "lyrics_3": "muse_lyrics_3",
         "lyrics_summary": "muse_lyrics_summary"        
     }
     _rank_num = 5
@@ -36,16 +37,18 @@ class SearchService:
         "artist": 5000,
         "vibe": 10000,
         "lyrics": 5000,
+        "lyrics_3": 5000,
         "lyrics_summary": 5000
     }
     _batch_size = 1000
     _priority = {        
         "title": 0,
         "album_name": 0,
-        "artist": 1,   # title과 동급        
+        "artist": 1,
         "vibe": 2,        
-        "lyrics_summary": 3,   # 후순위
-        "lyrics": 4,   # 후순위        
+        "lyrics_summary": 3,
+        "lyrics_3": 4,          
+        "lyrics": 5,                 
     }
     
     @staticmethod
@@ -225,7 +228,9 @@ class SearchService:
         if 'year' not in llm_results:
             llm_results['year'] = []
         if 'popular' not in llm_results:
-            llm_results['popular'] = False                
+            llm_results['popular'] = False
+        if 'lyrics' in llm_results:
+            llm_results['lyrics_3'] = deepcopy(llm_results['lyrics'])              
         
         #category 설정
         llm_results['category'] = []
@@ -355,11 +360,10 @@ class SearchService:
         try:                
             t1 = time.time()
             query_vector = EmbeddingService.get_vector(key=key, text=query_text.lower().replace(' ',''))                       
-            if key not in ['artist', 'title', 'lyrics', 'lyrics_summary', 'vibe', 'album_name']:
+            if key not in ['artist', 'title', 'lyrics', 'lyrics_3', 'lyrics_summary', 'vibe', 'album_name']:
             # if key not in ['artist', 'title', 'lyrics', 'lyrics_summary', 'vibe']:
                 return (key, {})
         
-            
             D, I = FaissService.search(key=key, query_vector=query_vector, k=SearchService._k_mapping[key])                                        
             # logging.info(f''' FAISS SEARCH: {key}, {query_text} {D} {I}''')
             if D is None or I is None:

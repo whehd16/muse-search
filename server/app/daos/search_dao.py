@@ -11,6 +11,7 @@ class SearchDAO:
         'title': 'tb_embedding_bgem3_song_name_h',
         'vibe' : 'tb_embedding_clap_h',
         'lyrics': 'tb_embedding_bgem3_lyrics_slide_h',
+        'lyrics_3': 'tb_embedding_bgem3_lyrics_3_slide_h',
         'lyrics_summary': 'tb_embedding_clap_lyrics_summary_h'
     }
     

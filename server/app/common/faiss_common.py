@@ -41,13 +41,23 @@ class MuseFaiss:
 
     try:
         indices['lyrics'] = faiss.read_index(f'{INDEX_PATH}/muse_lyrics.index')
-        logging.info(f"Loaded lyrics index: {indices['vibe'].ntotal} vectors")
+        logging.info(f"Loaded lyrics index: {indices['lyrics'].ntotal} vectors")
     except Exception as e:
         logging.warning(f"Failed to load lyrics index, trying backup: {e}")
         try:
             indices['lyrics'] = faiss.read_index(f'{INDEX_PATH}/muse_lyrics_backup.index')
         except Exception as e2:
             logging.error(f"Failed to load lyrics backup index: {e2}")
+
+    try:
+        indices['lyrics_3'] = faiss.read_index(f'{INDEX_PATH}/muse_lyrics_3.index')
+        logging.info(f"Loaded lyrics_3 index: {indices['lyrics_3'].ntotal} vectors")
+    except Exception as e:
+        logging.warning(f"Failed to load lyrics_3 index, trying backup: {e}")
+        try:
+            indices['lyrics_3'] = faiss.read_index(f'{INDEX_PATH}/muse_lyrics_3_backup.index')
+        except Exception as e2:
+            logging.error(f"Failed to load lyrics_3 backup index: {e2}")
 
     try:
         indices['lyrics_summary'] = faiss.read_index(f'{INDEX_PATH}/muse_lyrics_summary.index')

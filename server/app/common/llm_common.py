@@ -70,11 +70,11 @@ class MuseLLM:
         | 6 | 감정/상황 추천(구체적) | "운동할 때 듣기 좋은 노래" | mood, vibe(상황 분위기) |
         | 7 | 감정/상황 추천(추상적) | "자연 소리와 앰비언트 패드가 조화를 이룬 힐링용 연주곡" | mood, vibe(상세 설명)|
         | 8 | 가수 + 감정/상황 추천 | "빌리 아일리시 노래 중에 슬플 때 기운나는 노래 추천해줘" | artist, mood, vibe(분위기만) |
-        | 9 | 가사 검색 | "니가 없는 거리에는 가사 들어간 노래" | lyrics(니가 없는 거리에는), lyrics_summary(songs about empty streets without you) |
+        | 9 | 가사 검색 | "니가 없는 거리에는 라는 가사 들어간 노래" | lyrics(니가 없는 거리에는) |
         | 10 | 앨범 검색 | "버터플라이 앨범", "아이유 Modern Times 앨범", "영화 어벤져스의 노래" | album_name (+ artist 선택적) |
         | 11 | 앨범+조건 검색 | "Love Yourself 앨범에서 슬픈 노래" | album_name, mood/genre/vibe |
-        | 12 | 상황별 센스있는 추천 | "배고플 때 듣는 노래" | title, mood, vibe(재치있는 분위기) |
-        | 13 | 줄글에 대한 상황 요약 후 추천 | 라디오 사연, 기사 등과 같은 줄글 | title, mood, vibe |
+        | 12 | 상황별 센스있는 추천 | "배고플 때 듣는 노래" | title, mood, vibe(재치있는 분위기), lyrics_summary |
+        | 13 | 줄글에 대한 상황 요약 후 추천 | 라디오 사연, 기사 등과 같은 줄글 | title, mood, vibe, lyrics_summary |
         | 14 | 나머지 분류가 안될 때(예외 케이스) | |
 
         ### 핵심 예시
@@ -83,7 +83,7 @@ class MuseLLM:
         3. "재즈와 클래식" → region: ["전체", "전체"], genre: ["재즈", "클래식"]
         4. "국내 음악" → region: ["국내"], genre: [""]
         5. "아이유 Modern Times 앨범" → artist: ["아이유", "IU"], album_name: ["Modern Times", "모던 타임즈"]
-        6. "이별 후 혼자 가사" → lyrics: ["이별 후 혼자"], lyrics_summary: ["being alone after breakup"]
+        6. "'이별 후 혼자' 라는 가사 들어간 노래" → lyrics: ["이별 후 혼자"]
         7. "케이팝데몬헌터스 골든" → artist: ["케이팝데몬헌터스", "K-POP Demon Hunters"], album_name: ["케이팝데몬헌터스", "K-POP Demon Hunters"], title: ["골든", "Golden"]
         8. "디즈니 OST" → artist: ["디즈니", "Disney"], album_name: ["디즈니", "Disney"], genre: ["OST"]
         9. "디즈니 인어공주 노래" → artist: ["디즈니", "Disney"], album_name: ["디즈니", "Disney", "인어공주", "The Little Mermaid"]

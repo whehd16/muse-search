@@ -28,6 +28,9 @@ class EmbeddingService:
         'lyrics': {
             'embedding_model': 'bgem3'
         },
+        'lyrics_3': {
+            'embedding_model': 'bgem3'
+        },
         'vibe': {
             'embedding_model': 'clap'
         },
