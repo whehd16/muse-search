@@ -208,7 +208,7 @@ class SearchService:
         # return 'hello'
 
     @staticmethod
-    async def search_text(text: str, mood: list, timeout: float = 30.0) -> Dict[str, List]:        
+    async def search_text(text: str, mood: list, vibe_only: bool, timeout: float = 30.0) -> Dict[str, List]:        
 
         t1 = time.time()
 
@@ -235,11 +235,12 @@ class SearchService:
         #category 설정
         llm_results['category'] = []
 
-        # llm_results = {
-        #     'album_name': ['케이팝데몬헌터스'],
-        #     'year': [],
-        #     'popular': False
-        # }
+        if vibe_only:
+            llm_results = {
+                'popular': [True],
+                'year': llm_results['year'],
+                'vibe': llm_results['vibe']
+            }
 
         try:
             for i in range(len(llm_results['genre'])):

@@ -15,6 +15,7 @@ router = APIRouter(
 class TextRequest(BaseModel):
     text: str
     mood: list
+    vibe_only: bool = False
 
 class SimilarRequest(BaseModel):
     disccommseq: int
@@ -29,10 +30,12 @@ class AnalyzeRequest(BaseModel):
 @router.post("/text")
 async def search_song(input_data: TextRequest):    
     text = input_data.text    
-    mood = input_data.mood        
+    mood = input_data.mood
+    vibe_only = input_data.vibe_only
+
     start = time.time()
     logging.info(f'''User Query: {text}''')
-    result = await SearchService.search_text(text=text, mood=mood)
+    result = await SearchService.search_text(text=text, mood=mood, vibe_only=vibe_only)
     logging.info(f'''소요시간: {time.time()-start}''')
     return result
 
