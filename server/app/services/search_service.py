@@ -41,18 +41,19 @@ class SearchService:
         "lyrics_summary": 5000
     }
     _batch_size = 1000
-    _priority = {        
+    _priority = { 
+        "vibe": 0,       
         "title": 0,
         "album_name": 0,
         "artist": 1,
-        "vibe": 2,        
-        "lyrics_summary": 3,
-        "lyrics_3": 4,          
-        "lyrics": 5,                 
+        # "vibe": 2,        
+        "lyrics_summary": 2,
+        "lyrics_3": 3,          
+        "lyrics":4,                 
     }
     
     @staticmethod
-    async def _process_batch(key: str, query_text: str, batch_idx_list: list, batch_dist_list: list) -> dict:
+    async def _process_batch(key: str, query_text: str, batch_idx_list: list, batch_dist_list: list, vibe_exist: bool) -> dict:
         """배치 단위로 곡 정보를 처리하는 비동기 메서드"""
         batched_dict = {
             batch_idx_list[j]: batch_dist_list[j]
@@ -140,18 +141,21 @@ class SearchService:
         for song_key, song_meta in song_meta_dict.items():
             idx_list = song_info_idx[song_key]
             song_meta['count'] = 1
-            song_meta['dis'] = (
-                0.00001 if key == 'artist' and song_meta.get('artist') and 
-                query_text.lower().replace(' ','').strip() in 
-                song_meta['artist'].lower().replace(' ','').strip()
-                else 0.02 if key == 'album_name' and song_meta.get('disc_name') and 
-                query_text.lower().replace(' ','').strip() in 
-                song_meta['disc_name'].lower().replace(' ','').strip()
-                else 0.05 if key == 'title' and song_meta.get('song_name') and 
-                query_text.lower().replace(' ','').strip() in 
-                song_meta['song_name'].lower().replace(' ','').strip()
-                else min([float(batched_dict[idx]) for idx in idx_list])
-            )            
+            if vibe_exist:
+                song_meta['dis'] = min([float(batched_dict[idx]) for idx in idx_list])
+            else:
+                song_meta['dis'] = (
+                    0.00001 if key == 'artist' and song_meta.get('artist') and 
+                    query_text.lower().replace(' ','').strip() in 
+                    song_meta['artist'].lower().replace(' ','').strip()
+                    else 0.02 if key == 'album_name' and song_meta.get('disc_name') and 
+                    query_text.lower().replace(' ','').strip() in 
+                    song_meta['disc_name'].lower().replace(' ','').strip()
+                    else 0.05 if key == 'title' and song_meta.get('song_name') and 
+                    query_text.lower().replace(' ','').strip() in 
+                    song_meta['song_name'].lower().replace(' ','').strip()
+                    else min([float(batched_dict[idx]) for idx in idx_list])
+                )            
             song_meta['index_name'] = key
             song_meta['main_mood'] = (
                 [mood_dict[mood] for mood in json.loads(mood_value_dict[song_key]['mood_list'])]
@@ -241,7 +245,10 @@ class SearchService:
                 'year': llm_results['year'],
                 'vibe': llm_results['vibe']
             }
-
+        # else:
+        #     if 'vibe' in llm_results and llm_results['vibe'] and llm_results['title']:
+        #         llm_results['title'] = []
+                
         try:
             for i in range(len(llm_results['genre'])):
                 code, category = SearchService.filter_category(region=llm_results['region'][i], genre=llm_results['genre'][i]) 
@@ -259,7 +266,7 @@ class SearchService:
                
             if values and key in SearchService._index_mapping:                         
                 for value in values:
-                    job = SearchService._search_single_index(key=key, query_text=value, index_file_name=SearchService._index_mapping[key])
+                    job = SearchService._search_single_index(key=key, query_text=value, index_file_name=SearchService._index_mapping[key], vibe_exist=('vibe' in llm_results and llm_results['vibe']))
                     search_coroutines.append(job)
                     task_keys.append(key)                         
         try:
@@ -282,23 +289,34 @@ class SearchService:
 
         merged = defaultdict(lambda: None)
 
-        for (key, group) in results_list:                
-            for key, song_info in group.items():                                
+        for (query_key, group) in results_list:                
+            for key, song_info in group.items():                        
                 if merged[key] is None:
                     # 처음 등장하는 곡이면 복사
                     merged[key] = song_info.copy()
-                    merged[key]["index_name_set"] = set([merged[key]["index_name"]])
+                    merged[key]["index_name_set"] = set([merged[key]["index_name"]])      
+                    if query_key == 'vibe' and 'title' in task_keys:                        
+                        merged[key]["dis"] = 0.05 * merged[key]["dis"]              
+                                                       
                 else:                                        
                     merged[key]["count"] += 1
-                    if song_info.get("index_name") in merged[key]["index_name_set"]:
-                        merged[key]["dis"] = min(merged[key]["dis"] / 2, song_info.get("dis") / 2)                        
+                    if query_key == 'vibe' and 'title' in task_keys:
+                        merged[key]["dis"] = 0.1 * merged[key]["dis"]                        
+                    if song_info.get("index_name") in merged[key]["index_name_set"]:                        
+                        merged[key]["dis"] = min(merged[key]["dis"] / 2, song_info.get("dis") / 2)                                                
                     else:
                         merged[key]["dis"] *= song_info.get("dis", 0.0)
-                        merged[key]["index_name_set"].add(song_info.get("index_name"))
+                        merged[key]["index_name_set"].add(song_info.get("index_name"))            
 
         t4 = time.time()
         logging.info(f'''결과 병합 완료({text}: {t4 - t3}''')        
         
+        # title, vibe 점수 조작, hit_year면 올린다.                
+
+        for key, song in merged.items():
+            if 'vibe' in task_keys and 'title' in task_keys and song['hit_year']:
+                song['dis'] *= 0.5
+
         # dict → list 변환
         merged_list = list(merged.values())
 
@@ -308,17 +326,19 @@ class SearchService:
         total_dict = {}
 
         for song_dict in merged_list:
-            if len(total_dict) >= 500:
+            if not vibe_only and len(total_dict) >= 500:
+                break
+            if vibe_only and len(total_dict) >= 5000:
                 break
             song_key_artist = song_dict['artist'].lower().replace(' ','').strip() if song_dict['artist'] else ''
-            song_key_title = song_dict['song_name'].lower().replace(' ','').strip() if song_dict['song_name'] else ''
+            song_key_title = song_dict['song_name'].lower().replace(' ','').strip() if song_dict['song_name'] else ''            
             song_key = f'''{song_key_artist}_{song_key_title} '''
             if song_key not in total_dict:
-                total_dict[song_key] = deepcopy(song_dict)
+                total_dict[song_key] = deepcopy(song_dict)                
                 continue
             if total_dict[song_key]['hit_year']:
                continue
-            elif song_dict['hit_year']:
+            elif song_dict['hit_year']:                
                 total_dict[song_key] = deepcopy(song_dict)
 
         total_list = [ v for _, v in total_dict.items() ]           
@@ -333,7 +353,7 @@ class SearchService:
         return total_results
     
     @staticmethod
-    async def _search_single_index(key: str, query_text: str, index_file_name: str, timeout: float = 20.0) -> List:
+    async def _search_single_index(key: str, query_text: str, index_file_name: str, vibe_exist: bool = False, timeout: float = 20.0) -> List:
         try:
             # 공유 스레드 풀 사용 (교착상태 방지)
             loop = asyncio.get_event_loop()
@@ -343,7 +363,7 @@ class SearchService:
                 loop.run_in_executor(
                     SearchService._executor,  # 명시적 executor 사용
                     SearchService._faiss_search,
-                    key, query_text, index_file_name
+                    key, query_text, index_file_name, vibe_exist
                 ),
                 timeout=timeout
             )
@@ -356,7 +376,7 @@ class SearchService:
             return []
     
     @staticmethod
-    def _faiss_search(key: str, query_text: Any, index_file_name: str) -> Tuple:
+    def _faiss_search(key: str, query_text: Any, index_file_name: str, vibe_exist: bool) -> Tuple:
         #artist, title, vibe
         try:                
             t1 = time.time()
@@ -387,7 +407,7 @@ class SearchService:
             # 병렬 처리를 위한 태스크 생성
             tasks = []
             for batch_idx_list, batch_dist_list in zip(batched_I, batched_D):
-                tasks.append(SearchService._process_batch(key, query_text, batch_idx_list, batch_dist_list))
+                tasks.append(SearchService._process_batch(key, query_text, batch_idx_list, batch_dist_list, vibe_exist))
             
             # 이벤트 루프에서 비동기 함수 실행
             try:
