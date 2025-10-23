@@ -212,7 +212,7 @@ class SearchService:
         # return 'hello'
 
     @staticmethod
-    async def search_text(text: str, mood: list, vibe_only: bool, timeout: float = 30.0) -> Dict[str, List]:        
+    async def search_text(text: str, mood: list, vibe_only: bool, timeout: float = 30.0, playlist_id = None) -> Dict[str, List]:        
 
         t1 = time.time()
 
@@ -266,7 +266,7 @@ class SearchService:
                
             if values and key in SearchService._index_mapping:                         
                 for value in values:
-                    job = SearchService._search_single_index(key=key, query_text=value, index_file_name=SearchService._index_mapping[key], vibe_exist=('vibe' in llm_results and llm_results['vibe']))
+                    job = SearchService._search_single_index(key=key, query_text=value, index_file_name=SearchService._index_mapping[key], vibe_exist=('vibe' in llm_results and llm_results['vibe']), playlist_id=playlist_id)
                     search_coroutines.append(job)
                     task_keys.append(key)                         
         try:
@@ -353,7 +353,7 @@ class SearchService:
         return total_results
     
     @staticmethod
-    async def _search_single_index(key: str, query_text: str, index_file_name: str, vibe_exist: bool = False, timeout: float = 20.0) -> List:
+    async def _search_single_index(key: str, query_text: str, index_file_name: str, vibe_exist: bool = False, timeout: float = 30.0, playlist_id: str = None) -> List:
         try:
             # 공유 스레드 풀 사용 (교착상태 방지)
             loop = asyncio.get_event_loop()
@@ -363,7 +363,7 @@ class SearchService:
                 loop.run_in_executor(
                     SearchService._executor,  # 명시적 executor 사용
                     SearchService._faiss_search,
-                    key, query_text, index_file_name, vibe_exist
+                    key, query_text, index_file_name, vibe_exist, playlist_id
                 ),
                 timeout=timeout
             )
@@ -376,7 +376,7 @@ class SearchService:
             return []
     
     @staticmethod
-    def _faiss_search(key: str, query_text: Any, index_file_name: str, vibe_exist: bool) -> Tuple:
+    def _faiss_search(key: str, query_text: Any, index_file_name: str, vibe_exist: bool, playlist_id: str) -> Tuple:
         #artist, title, vibe
         try:                
             t1 = time.time()
@@ -385,7 +385,11 @@ class SearchService:
             # if key not in ['artist', 'title', 'lyrics', 'lyrics_summary', 'vibe']:
                 return (key, {})
         
-            D, I = FaissService.search(key=key, query_vector=query_vector, k=SearchService._k_mapping[key])                                        
+            if playlist_id:
+                D, I = FaissService.search_with_include(key=key, query_vector=query_vector, k=SearchService._k_mapping[key], playlist_id=playlist_id)            
+            else:
+                D, I = FaissService.search(key=key, query_vector=query_vector, k=SearchService._k_mapping[key])            
+            
             # logging.info(f''' FAISS SEARCH: {key}, {query_text} {D} {I}''')
             if D is None or I is None:
                 return (key, {})                

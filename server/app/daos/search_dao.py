@@ -14,6 +14,16 @@ class SearchDAO:
         'lyrics_3': 'tb_embedding_bgem3_lyrics_3_slide_h',
         'lyrics_summary': 'tb_embedding_clap_lyrics_summary_h'
     }
+
+    _column_mapping = {
+        'artist': ['disccommseq','trackno'],        
+        'album_name': ['disccommseq'],
+        'title': ['disccommseq','trackno'],
+        'vibe' : ['disccommseq','trackno'],
+        'lyrics': ['disccommseq','trackno'],
+        'lyrics_3': ['disccommseq','trackno'],
+        'lyrics_summary': ['disccommseq','trackno']
+    }
     
     @staticmethod
     def get_song_batch_info(key: str, idx_list: List):
@@ -290,3 +300,54 @@ class SearchDAO:
             return genre_set
         else:
             return set()
+        
+
+    @staticmethod
+    def get_playlist_idx(key: str, disc_track_pairs: List[tuple]) -> List[int]:
+        """
+        disc_track_pairs로부터 FAISS용 idx 리스트를 조회
+
+        Args:
+            key: 테이블 타입 (artist, title, vibe, etc.)
+            disc_track_pairs: [(disccommseq, trackno), ...] 형태의 리스트
+
+        Returns:
+            FAISS idx 리스트 (MySQL idx - 1)
+            예: MySQL idx=[1, 2, 5] → FAISS idx=[0, 1, 4]
+
+        Note:
+            MySQL idx는 1부터 시작, FAISS는 0부터 시작하므로 -1 변환
+        """
+        if not disc_track_pairs:
+            return []
+
+        # key에 따라 컬럼 확인 (album_name은 trackno 없음)
+        columns = SearchDAO._column_mapping.get(key, [])
+
+        if 'trackno' in columns:
+            # disccommseq와 trackno 둘 다 필요
+            placeholders = ", ".join(["(%s, %s)"] * len(disc_track_pairs))
+            query = f"""
+                SELECT idx
+                FROM {SearchDAO._table_mapping[key]}
+                WHERE (disccommseq, trackno) IN ({placeholders})
+            """            
+            params = [item for pair in disc_track_pairs for item in pair]
+        else:
+            # disccommseq만 필요 (album_name)
+            placeholders = ", ".join(["%s"] * len(disc_track_pairs))
+            query = f"""
+                SELECT idx
+                FROM {SearchDAO._table_mapping[key]}
+                WHERE disccommseq IN ({placeholders})
+            """
+            # disc_track_pairs에서 disccommseq만 추출
+            params = [pair[0] for pair in disc_track_pairs]
+
+        results, code = Database.execute_query(query, params=params, fetchall=True)
+
+        if code == 200:
+            # MySQL idx → FAISS idx 변환 (1부터 시작 → 0부터 시작)
+            return [result[0] - 1 for result in results]
+        else:
+            return []

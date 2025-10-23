@@ -7,6 +7,7 @@ from datetime import datetime
 from common.logger_common import Logger
 from common.dataloader_common import MuseDataLoader
 from common.faiss_common import MuseFaiss
+from common.playlist_common import PlaylistLoader
 
 Logger.set_logger(log_path='./logs', file_name='etc.log')
 
@@ -23,7 +24,7 @@ if __name__ == "__main__":
         train_parser.add_argument('--dimension', type=int, required=True, help='dimension of model')
 
         # add parser
-        vector_add_parser = subparsers.add_parser('add_faiss', help='Add vectors into pre-clustered FAISS')     
+        vector_add_parser = subparsers.add_parser('add_faiss', help='Add vectors into pre-clustered FAISS')
         vector_add_parser.add_argument('--model', type=str, required=True, help='Select a model')
         vector_add_parser.add_argument('--type', type=str, required=True, help='Select a type(song, artist, song_name)')
         vector_add_parser.add_argument('--dimension', type=int, required=True, help='dimension of model')
@@ -31,9 +32,12 @@ if __name__ == "__main__":
         vector_add_parser.add_argument('--output', type=str, required=True, help='Output file path')
 
         #info parer
-        info_add_parser = subparsers.add_parser('info_faiss', help='info faiss index')     
+        info_add_parser = subparsers.add_parser('info_faiss', help='info faiss index')
         info_add_parser.add_argument('--dimension', type=int, required=True, help='dimension of model')
         info_add_parser.add_argument('--input', type=str, required=True, help='Input file path')
+
+        # cache_playlist parser (NEW!)
+        cache_playlist_parser = subparsers.add_parser('cache_playlist', help='Cache playlist include_ids to Redis (permanent)')
 
         args = parser.parse_args()
 
@@ -77,11 +81,17 @@ if __name__ == "__main__":
             muse_faiss = MuseFaiss(d=args.dimension)
             muse_faiss.read_index(args.input)
             logging.info(f'''{muse_faiss.info()}''')
-            
+
+        elif args.func == 'cache_playlist':
+            Logger.set_logger(log_path=log_path, file_name='cache_playlist.log')
+            logging.info(f'''Starting playlist cache job (permanent storage)''')
+            PlaylistLoader.load_all_programs_to_redis()
+            logging.info(f'''Playlist cache job completed''')
+
         else:
             os.rmdir(f'''./logs/{args.func}''')
-            logging.error(f'''{args.func} is not a func''')   
-    
+            logging.error(f'''{args.func} is not a func''')
+
     except Exception as e:
         logging.error(e)
 

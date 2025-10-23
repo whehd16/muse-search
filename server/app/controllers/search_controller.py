@@ -17,6 +17,12 @@ class TextRequest(BaseModel):
     mood: list
     vibe_only: bool = False
 
+class TextRequestPlaylist(BaseModel):
+    text: str
+    mood: list
+    playlist_id: str
+    vibe_only: bool = False
+
 class SimilarRequest(BaseModel):
     disccommseq: int
     trackno: str
@@ -36,6 +42,19 @@ async def search_song(input_data: TextRequest):
     start = time.time()
     logging.info(f'''User Query: {text}''')
     result = await SearchService.search_text(text=text, mood=mood, vibe_only=vibe_only)
+    logging.info(f'''소요시간: {time.time()-start}''')
+    return result
+
+@router.post("/text_playlist")
+async def search_playlist_song(input_data: TextRequestPlaylist):
+    text = input_data.text    
+    mood = input_data.mood
+    vibe_only = input_data.vibe_only
+    playlist_id = input_data.playlist_id
+
+    start = time.time()
+    logging.info(f'''User Query: {text}''')
+    result = await SearchService.search_text(text=text, mood=mood, vibe_only=vibe_only, playlist_id=playlist_id)
     logging.info(f'''소요시간: {time.time()-start}''')
     return result
 
