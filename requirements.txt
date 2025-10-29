@@ -8,3 +8,4 @@ gunicorn==23.0.0
 oracledb==2.5.1
 requests==2.32.4
 rapidfuzz=3.14.1
+redis=6.4.0
