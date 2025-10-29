@@ -50,14 +50,22 @@ class Database:
 
     @staticmethod
     def get_all_program_ids():
-        """
-        config.py의 PROGRAM_ID 리스트 반환
-
-        Returns:
-            program_id 리스트 ['drp', 'fgy', 'k2k', 'mdi', 'nmg', 'rtc']
-        """
-        logging.info(f"Database.get_all_program_ids: {len(PROGRAM_ID)} programs from config")
-        return PROGRAM_ID
+        try:           
+            results, code = Database.execute_query(
+                f"""
+                    SELECT id
+                    FROM muse.tb_program_m
+                    GROUP BY id
+                """,
+                fetchall=True
+            )
+            if code == 200:                
+                return [result[0] for result in results]
+            else:
+                return []
+        except Exception as e:
+            logging.error(f'''get_all_progeam_ids: {e}''')
+            return []
 
     @staticmethod
     def get_program_songs(program_id: str):
@@ -72,12 +80,13 @@ class Database:
             [{'disc_comm_seq': 12345, 'track_no': '01'}, ...]
         """
         try:
-            table_name = f"muse.tb_song_{program_id}_m"
+            table_name = f"muse.tb_playlist_song_pool_m"
 
             results, code = Database.execute_query(
                 f"""
                     SELECT disc_id, track_no
                     FROM {table_name}
+                    WHERE program_id = '{program_id}'
                     ORDER BY idx
                 """,
                 fetchall=True
