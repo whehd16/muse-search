@@ -130,28 +130,27 @@ class MuseLLM:
     @staticmethod
     def make_system_reason_prompt(text, llm_result, song_info):
 
-        return f"""
-        아래는 사용자의 음악 검색 요청에 대한 결과입니다. 
-        자연스럽고 친근한 응답으로 음악을 추천해주세요.
+        return f"""Generate ONE concise recommendation reason for the music search result.
 
-        사용자 요청: {text}
+            User query: {text}
+            Search results: {llm_result}
+            Final songs: {song_info}
 
-        사용자 요청에 대한 FAISS 처리 목록: {llm_result}
+            Return format:
+            {{"description": ["one specific reason in Korean"]}}
 
-        최종 추천곡:
-        {song_info}
+            Guidelines:
+            - Write ONE clear reason why this song matches the user's request
+            - Use friendly, natural Korean
+            - Be specific about the song's characteristics (mood, artist style, genre, etc.)
+            - Keep it concise (1-2 sentences)
 
-        요청사항:
-        1. 각 곡에 대해 왜 추천하는지 간단한 설명 추가  
-        2. 자연스러운 대화체로 응답
-        3. 반환 형태: dict(key: 'description', value: ['추천 이유'])
-        4. 한국어로 된 추천 이유만 반환할 것        
-        
-        JSON 형식으로만 응답하세요.
-    """
+            Example:
+            {{"description": ["어떤어떤 이유로 추천합니다."]}}
+
+            Return ONLY the JSON object:"""
 
     @staticmethod
-    # "model": "google/gemma-3-27b-it",
     def make_system_reason_payload(prompt):
         return {
         "model": "openai/gpt-oss-120b",
@@ -159,16 +158,10 @@ class MuseLLM:
             {
                 "role": "system",
                 "content": prompt
-            },
-
-            {
-                "role": "user",
-                "content": "쿼리"
             }
-        ],            
+        ],
         "max_tokens": 1000,
-        "temperature": 0.4,
-        "response_format": {"type": "json_object"}  # JSON 응답 강제 (지원되면)
+        "temperature": 0.3
     }
 
     @staticmethod
@@ -196,10 +189,10 @@ class MuseLLM:
 
     @staticmethod
     def get_reason(text, llm_result, song_info):
-        response = requests.post(MuseLLM._oss_url, json= MuseLLM.make_system_reason_payload(prompt=MuseLLM.make_system_reason_prompt(text=text, llm_result=llm_result, song_info=song_info)))
+        response = requests.post(MuseLLM._oss_url, json= MuseLLM.make_system_reason_payload(prompt=MuseLLM.make_system_reason_prompt(text=text, llm_result=llm_result, song_info=song_info)))        
         # 응답 파싱
         if response.status_code == 200:
-            data = response.json()            
+            data = response.json()                        
             return data['choices'][0]['message']['content']            
         else:
             logging.error("오류:", response.status_code, response.text)
