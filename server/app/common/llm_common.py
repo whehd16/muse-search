@@ -169,10 +169,10 @@ class MuseLLM:
         try:            
             if llm_type == 'gemma':
                 MuseLLM._gemma_payload['messages'][1]['content'] = f'''쿼리: {text}, 무드: {mood}'''
-                response = requests.post(MuseLLM._gemma_url, json= MuseLLM._gemma_payload)
+                response = requests.post(MuseLLM._gemma_url, json= MuseLLM._gemma_payload)                
             elif llm_type == 'oss':
                 MuseLLM._oss_payload['messages'][1]['content'] = f'''쿼리: {text}, 무드: {mood}'''
-                response = requests.post(MuseLLM._oss_url, json= MuseLLM._oss_payload)        
+                response = requests.post(MuseLLM._oss_url, json= MuseLLM._oss_payload)                      
             
             # 응답 파싱
             if response.status_code == 200:

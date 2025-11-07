@@ -476,7 +476,7 @@ class SearchService:
             return False
 
     @staticmethod
-    async def search_similar_song(key, disccommseq, trackno):
+    async def search_similar_song(key, disccommseq, trackno, playlist_id=None):
         try:
             results = {}
             # 타겟 곡의 메타 정보 가져오기
@@ -499,10 +499,15 @@ class SearchService:
             
             embedding_results = [ np.atleast_2d(np.load(io.BytesIO(embedding_result), allow_pickle=True))[0] for embedding_result in embedding_results]
             batched_I = []
-            
-            for embedding_result in embedding_results:
-                D, I = FaissService.search(key=key, query_vector=embedding_result, k=100)                                                    
-                batched_I.append([int(idx)+1 for idx in I[0]])
+
+            if playlist_id:
+                for embedding_result in embedding_results:
+                    D, I = FaissService.search_with_include(key=key, query_vector=embedding_result, k=100, playlist_id=playlist_id)                                                    
+                    batched_I.append([int(idx)+1 for idx in I[0]])
+            else:
+                for embedding_result in embedding_results:
+                    D, I = FaissService.search(key=key, query_vector=embedding_result, k=100)                                                    
+                    batched_I.append([int(idx)+1 for idx in I[0]])
             
             for _, batch_idx_list in enumerate(batched_I):
                 song_info_dict = SearchDAO.get_song_batch_info(key=key, idx_list=batch_idx_list)
@@ -582,7 +587,7 @@ class SearchService:
         try:
             song_info = SearchDAO.get_song_meta(disccommseq=disccommseq, trackno=trackno)        
             analyze_result = MuseLLM.get_reason(text=text, llm_result=llm_result, song_info=song_info)           
-                         
+
             if analyze_result:
                 analyze_result = json.loads(analyze_result)
                 logging.info(f'''analyze_result : {analyze_result} ''')

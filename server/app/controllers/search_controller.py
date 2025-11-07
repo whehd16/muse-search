@@ -27,6 +27,11 @@ class SimilarRequest(BaseModel):
     disccommseq: int
     trackno: str
 
+class SimilarRequestPlaylist(BaseModel):
+    disccommseq: int
+    trackno: str
+    playlist_id: str
+
 class AnalyzeRequest(BaseModel):
     text: str
     llm_result: dict
@@ -68,6 +73,18 @@ async def search_similar_song(input_data: SimilarRequest):
     logging.info(f'''소요시간: {time.time()-start}''')
     return result
 
+@router.post("/similar_in_playlist")
+async def search_similar_song(input_data: SimilarRequestPlaylist):
+    disccommseq = input_data.disccommseq
+    trackno = input_data.trackno
+    playlist_id = input_data.playlist_id
+
+    start = time.time()
+    logging.info(f'''Find Similar song vibe in playlist: {disccommseq}_{trackno} ''')
+    result = await SearchService.search_similar_song(key='vibe', disccommseq=disccommseq, trackno=trackno, playlist_id=playlist_id)
+    logging.info(f'''소요시간: {time.time()-start}''')
+    return result
+
 @router.post("/similar_lyric")
 async def search_similar_song_lyric(input_data: SimilarRequest):
     disccommseq = input_data.disccommseq
@@ -75,6 +92,18 @@ async def search_similar_song_lyric(input_data: SimilarRequest):
     start = time.time()
     logging.info(f'''Find Similar song lyric: {disccommseq}_{trackno} ''')
     result = await SearchService.search_similar_song(key='lyrics_summary', disccommseq=disccommseq, trackno=trackno)
+    logging.info(f'''소요시간: {time.time()-start}''')
+    return result
+
+@router.post("/similar_lyric_in_playlist")
+async def search_similar_song_lyric(input_data: SimilarRequestPlaylist):
+    disccommseq = input_data.disccommseq
+    trackno = input_data.trackno
+    playlist_id = input_data.playlist_id
+
+    start = time.time()
+    logging.info(f'''Find Similar song lyric: {disccommseq}_{trackno} ''')
+    result = await SearchService.search_similar_song(key='lyrics_summary', disccommseq=disccommseq, trackno=trackno, playlist_id=playlist_id)
     logging.info(f'''소요시간: {time.time()-start}''')
     return result
 
