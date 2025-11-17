@@ -1,4 +1,5 @@
 faiss-gpu==1.7.2
+faiss_cpu==1.11.0.post1
 pymysql-pool==0.4.6
 numpy==1.23.5
 pymysql-pool==0.4.6

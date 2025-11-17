@@ -40,7 +40,7 @@ class MuseFaiss:
         )
     
     def ntotal(self):
-         return self.IVFPQ_index.ntotal
+         return self.index.ntotal
     
     def print_all_vectors(self):
         n_total = self.IVFPQ_index.ntotal  # 전체 벡터 수
