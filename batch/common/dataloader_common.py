@@ -16,7 +16,7 @@ class MuseDataLoader:
         'bgem3_song_name': 'muse.tb_embedding_bgem3_song_name_h',
         'bgem3_lyrics_slide': 'muse.tb_embedding_bgem3_lyrics_slide_h',
         'bgem3_lyrics_3_slide': 'muse.tb_embedding_bgem3_lyrics_3_slide_h',
-        'bgem3_album_name': 'muse.tb_embeddingbgem3_album_name_h'
+        'bgem3_album_name': 'muse.tb_embedding_bgem3_album_name_h'
     }
     _columns = {
         'clap_song': 'embedding_result',

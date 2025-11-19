@@ -76,8 +76,8 @@ if __name__ == "__main__":
             
             last_idx = MuseDataLoader.get_last_idx(model=args.model, embedding_type=args.type)
 
-            for i in range(1, last_idx, 5000):
-                add_vectors  = MuseDataLoader.get_add_vectors(model=args.model, embedding_type=args.type, start_idx=i, end_idx=min(last_idx, i+5000))
+            for i in range(1, last_idx + 1, 5000):
+                add_vectors  = MuseDataLoader.get_add_vectors(model=args.model, embedding_type=args.type, start_idx=i, end_idx=min(last_idx+1, i+5000))
                 muse_faiss.add(vectors=np.array(add_vectors, dtype='float32'))
                 logging.info(f'''ADD COMPLETE({len(add_vectors)}) {i} ~ {min(last_idx, i+5000-1)}''')
                 logging.info(f'''{muse_faiss.info()}''')
@@ -108,7 +108,7 @@ if __name__ == "__main__":
                 logging.info(f'''추가할 새로운 벡터가 없습니다. (FAISS에 저장된 DB idx: 1~{current_ntotal}, DB 최신 idx: {last_idx})''')
             else:
                 logging.info(f'''DB idx {start_from}부터 {last_idx}까지 추가 시작''')
-
+                # 1~5000
                 for i in range(start_from, last_idx + 1, 5000):
                     add_vectors = MuseDataLoader.get_add_vectors(model=args.model, embedding_type=args.type, start_idx=i, end_idx=min(last_idx + 1, i+5000))
                     if add_vectors:
