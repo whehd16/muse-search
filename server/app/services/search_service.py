@@ -455,11 +455,13 @@ class SearchService:
     def _is_duplicate_song(artist1, title1, artist2, title2, threshold=0.85):
         """두 곡이 중복인지 판단 (정규화 + 유사도 체크)"""
         # 먼저 정규화된 문자열로 정확한 매칭 체크
-        norm_artist1 = SearchService._normalize_for_dedup(artist1)
-        norm_title1 = SearchService._normalize_for_dedup(title1)
-        norm_artist2 = SearchService._normalize_for_dedup(artist2)
-        norm_title2 = SearchService._normalize_for_dedup(title2)
+        norm_artist1 = SearchService._normalize_for_dedup(artist1).replace(' ','')
+        norm_title1 = SearchService._normalize_for_dedup(title1).replace(' ','')
+        norm_artist2 = SearchService._normalize_for_dedup(artist2).replace(' ','')
+        norm_title2 = SearchService._normalize_for_dedup(title2).replace(' ','')
         
+        logging.info(f'''{norm_artist1}, {norm_title1}, {norm_artist2}, {norm_title2} ''')
+
         # 정규화된 결과가 완전히 같으면 중복
         if norm_artist1 == norm_artist2 and norm_title1 == norm_title2:
             return True

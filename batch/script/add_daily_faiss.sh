@@ -125,3 +125,5 @@ cp -f "${INDEX_DIR}/muse_lyrics_3_${TODAY}.index" "${INDEX_DIR}/muse_lyrics_3.in
 sync_server "muse_lyrics_3"
 
 echo "[DONE] batch & server index 모두 갱신 완료"
+
+systemctl restart muse_search_fastapi.service

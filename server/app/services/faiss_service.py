@@ -7,7 +7,6 @@ from daos.search_dao import SearchDAO
 from typing import Dict, List, Any, Optional, Tuple
 import numpy as np
 import logging
-import time
 
 class FaissService:
     @staticmethod
