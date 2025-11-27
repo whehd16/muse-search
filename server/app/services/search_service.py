@@ -202,14 +202,6 @@ class SearchService:
                 return False, None
             else:
                 return True, region
-    
-        return f'''{region} {genre}'''
-
-        # if genre in category[region]:
-        #     return f'''{region} {genre}'''
-        # else:
-        
-        # return 'hello'
 
     @staticmethod
     async def search_text(text: str, mood: list, vibe_only: bool, timeout: float = 30.0, playlist_id = None) -> Dict[str, List]:        
@@ -279,11 +271,6 @@ class SearchService:
             logging.error(f"Search operation timed out after {timeout}s")
             return {key: [] for key in task_keys}
         
-        # logging.info(results_list)
-        # for d in results_list:
-        #     for k, v in d.items():
-        #         logging.info(f'''{k}, {v}''')
-        
         t3 = time.time()
         logging.info(f'''FAISS 검색 완료({text}): {t3 - t2}''')
 
@@ -315,7 +302,8 @@ class SearchService:
 
         for key, song in merged.items():
             if 'vibe' in task_keys and 'title' in task_keys and song['hit_year']:
-                song['dis'] *= 0.5
+                # song['dis'] *= 0.5
+                song['dis'] *= 0.001
 
         # dict → list 변환
         merged_list = list(merged.values())
@@ -452,7 +440,7 @@ class SearchService:
         return text
     
     @staticmethod
-    def _is_duplicate_song(artist1, title1, artist2, title2, threshold=0.85):
+    def _is_duplicate_song(artist1, title1, artist2, title2, threshold=0.75):
         """두 곡이 중복인지 판단 (정규화 + 유사도 체크)"""
         # 먼저 정규화된 문자열로 정확한 매칭 체크
         norm_artist1 = SearchService._normalize_for_dedup(artist1).replace(' ','')
@@ -460,8 +448,6 @@ class SearchService:
         norm_artist2 = SearchService._normalize_for_dedup(artist2).replace(' ','')
         norm_title2 = SearchService._normalize_for_dedup(title2).replace(' ','')
         
-        logging.info(f'''{norm_artist1}, {norm_title1}, {norm_artist2}, {norm_title2} ''')
-
         # 정규화된 결과가 완전히 같으면 중복
         if norm_artist1 == norm_artist2 and norm_title1 == norm_title2:
             return True
