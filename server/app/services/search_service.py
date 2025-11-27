@@ -282,12 +282,12 @@ class SearchService:
                     # 처음 등장하는 곡이면 복사
                     merged[key] = song_info.copy()
                     merged[key]["index_name_set"] = set([merged[key]["index_name"]])      
-                    if query_key == 'vibe' and 'title' in task_keys:                        
+                    if query_key == 'vibe' and 'title' in task_keys and 'artist' not in task_keys:                        
                         merged[key]["dis"] = 0.05 * merged[key]["dis"]              
                                                        
                 else:                                        
                     merged[key]["count"] += 1
-                    if query_key == 'vibe' and 'title' in task_keys:
+                    if query_key == 'vibe' and 'title' in task_keys and 'artist' not in task_keys:
                         merged[key]["dis"] = 0.1 * merged[key]["dis"]                        
                     if song_info.get("index_name") in merged[key]["index_name_set"]:                        
                         merged[key]["dis"] = min(merged[key]["dis"] / 2, song_info.get("dis") / 2)                                                
