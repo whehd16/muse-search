@@ -86,7 +86,7 @@ class Database:
                 f"""
                     SELECT disc_id, track_no
                     FROM {table_name}
-                    WHERE program_id = '{program_id}'
+                    WHERE program_id = '{program_id}' AND is_banned = 0
                     ORDER BY idx
                 """,
                 fetchall=True

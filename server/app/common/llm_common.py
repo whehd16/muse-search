@@ -56,6 +56,7 @@ class MuseLLM:
         - **title 사용**: "제목에 ~가 들어간" 명시적 요청이나 날씨/계절만. 나머지는 mood/vibe 활용
         - **vibe**: 추천 쿼리의 음악적 특징/분위기만을 감지해서 영어로 3개의 문장 생성 (CLAP 임베딩용 영어 설명, 아티스트 및 제목 정보 절대 넣지 말 것, 상황에 대한 설명 절대 넣지 말 것(for ~~))
         - **lyrics_summary**: 가사 쿼리를 영어로 요약
+        - **mood만 있을 경우**: mood에 해당하는 vibe를 추출할 것.
 
         ### 케이스 분류
 
@@ -179,7 +180,7 @@ class MuseLLM:
             
             # 응답 파싱
             if response.status_code == 200:
-                data = response.json()      
+                data = response.json()                
                 results = json.loads(data['choices'][0]['message']['content'])
                 results['llm_model'] = llm_type                            
                 return results
