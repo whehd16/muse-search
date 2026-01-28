@@ -180,7 +180,8 @@ class SearchService:
 
     @staticmethod
     def filter_category(region, genre):
-        category_dict, genre_set = SearchDAO.get_song_category(), SearchDAO.get_song_genre()
+                
+        genre_set, category_dict = SearchDAO.get_song_genre(), SearchDAO.get_song_category()
         logging.info(f'''{category_dict}, {genre_set}''')
         if region not in category_dict:
             # 해외 ... 전세계 ...
@@ -243,6 +244,7 @@ class SearchService:
                 
         try:
             for i in range(len(llm_results['genre'])):
+                logging.info(f'''\t{llm_results['region'][i]} {llm_results['genre'][i]}''')
                 code, category = SearchService.filter_category(region=llm_results['region'][i], genre=llm_results['genre'][i]) 
                 if code:
                     llm_results['category'].append(category)
