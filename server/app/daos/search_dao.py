@@ -270,12 +270,14 @@ class SearchDAO:
             return {}
         
     @staticmethod
-    def get_song_category():        
+    def get_song_category():       
+        
         results, code = Database.execute_query(f"""
             SELECT region, genre
             FROM muse.tb_info_song_category_m
             WHERE valid=1
         """, fetchall=True)
+        
         if code == 200:
             category_dict = {}
             for region, genre in results:
@@ -287,12 +289,13 @@ class SearchDAO:
             return {}
         
     @staticmethod
-    def get_song_genre():        
+    def get_song_genre():
         results, code = Database.execute_query(f"""
             SELECT genre
             FROM muse.tb_info_song_category_m
             GROUP BY genre
         """, fetchall=True)
+
         if code == 200:
             genre_set = set()
             for genre in results:

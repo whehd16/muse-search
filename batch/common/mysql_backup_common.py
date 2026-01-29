@@ -1,10 +1,10 @@
-from config import DATABASE_CONFIG
+from config import DATABASE_BACKUP_CONFIG, PROGRAM_ID
 import pymysql
 import logging
 from pymysqlpool import ConnectionPool
 
 class Database:    
-    __pool = ConnectionPool(size=100, name="db_pool", **DATABASE_CONFIG[0])
+    __pool = ConnectionPool(size=100, name="db_pool", **DATABASE_BACKUP_CONFIG[0])
 
     @staticmethod
     def __connect():
@@ -24,32 +24,33 @@ class Database:
     
     @staticmethod
     def execute_query(query, params=None, fetchone=False, fetchall=False, count_row=False, last_id=False):
-        try:            
-            connection = Database.__connect()     
-            cursor = connection.cursor()                
-            cursor.execute(query, params) 
+        try:
+            connection = Database.__connect()
+            cursor = connection.cursor()
+            cursor.execute(query, params)
             connection.commit()
 
             if fetchone:
                 result = cursor.fetchone()
             elif fetchall:
-                result = cursor.fetchall()                
+                result = cursor.fetchall()
             elif count_row:
                 if last_id:
                     result = [cursor.rowcount, cursor.lastrowid]
-                else:                        
+                else:
                     result = cursor.rowcount
             else:
                 result = None
             return result, 200
         except Exception as e:
+            logging.error(f"Database.execute_query error: {e}")
             return e, 500
         finally:
             Database.__close(connection)
 
     @staticmethod
     def get_all_program_ids():
-        try:
+        try:           
             results, code = Database.execute_query(
                 f"""
                     SELECT id
@@ -58,19 +59,19 @@ class Database:
                 """,
                 fetchall=True
             )
-            if code == 200:
+            if code == 200:                
                 return [result[0] for result in results]
             else:
                 return []
         except Exception as e:
-            logging.error(f'''get_all_program_ids: {e}''')
+            logging.error(f'''get_all_progeam_ids: {e}''')
             return []
 
     @staticmethod
     def get_program_songs(program_id: str):
         """
         특정 program의 모든 곡 정보 조회
-        muse.tb_playlist_song_pool_m 테이블에서 조회
+        muse.tb_song_{program_id}_m 테이블에서 조회
 
         Args:
             program_id: 프로그램 ID (예: 'drp', 'fgy', ...)
@@ -85,7 +86,7 @@ class Database:
                 f"""
                     SELECT disc_id, track_no
                     FROM {table_name}
-                    WHERE program_id = '{program_id} AND is_banned = 0'
+                    WHERE program_id = '{program_id}' AND is_banned = 0
                     ORDER BY idx
                 """,
                 fetchall=True

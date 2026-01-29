@@ -176,7 +176,7 @@ class MuseFaiss:
             # logging.info(f"[DEBUG] Search completed. D shape: {D.shape}, I shape: {I.shape}")
             # logging.info(f"[DEBUG] D values: {D[0]}")
             # logging.info(f"[DEBUG] I values (before threshold): {I[0]}")
-            logging.info(f"search_with_include [{key}]: {len(valid_include_ids)} include_ids, returned {I} results")            
+            # logging.info(f"search_with_include [{key}]: {len(valid_include_ids)} include_ids, returned {I} results")            
 
             # 기존 search와 동일한 threshold 필터링 적용
             if key in ['artist', 'lyrics', 'title']:
