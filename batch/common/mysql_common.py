@@ -46,3 +46,61 @@ class Database:
             return e, 500
         finally:
             Database.__close(connection)
+
+    @staticmethod
+    def get_all_program_ids():
+        try:
+            results, code = Database.execute_query(
+                f"""
+                    SELECT id
+                    FROM muse.tb_program_m
+                    GROUP BY id
+                """,
+                fetchall=True
+            )
+            if code == 200:
+                return [result[0] for result in results]
+            else:
+                return []
+        except Exception as e:
+            logging.error(f'''get_all_program_ids: {e}''')
+            return []
+
+    @staticmethod
+    def get_program_songs(program_id: str):
+        """
+        특정 program의 모든 곡 정보 조회
+        muse.tb_playlist_song_pool_m 테이블에서 조회
+
+        Args:
+            program_id: 프로그램 ID (예: 'drp', 'fgy', ...)
+
+        Returns:
+            [{'disc_comm_seq': 12345, 'track_no': '01'}, ...]
+        """
+        try:
+            table_name = f"muse.tb_playlist_song_pool_m"
+
+            results, code = Database.execute_query(
+                f"""
+                    SELECT disc_id, track_no
+                    FROM {table_name}
+                    WHERE program_id = '{program_id}'
+                    ORDER BY idx
+                """,
+                fetchall=True
+            )
+
+            if code == 200:
+                songs = [
+                    {'disc_comm_seq': row[0], 'track_no': row[1]}
+                    for row in results
+                ]
+                logging.info(f"Database.get_program_songs: {len(songs)} songs from {table_name}")
+                return songs
+            else:
+                logging.error(f"Database.get_program_songs: FAILED for {table_name}")
+                return []
+        except Exception as e:
+            logging.error(f"Database.get_program_songs error for program_id={program_id}: {e}")
+            return []

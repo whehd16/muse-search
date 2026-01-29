@@ -1,5 +1,4 @@
 from common.mysql_common import Database
-from common.mysql_backup_common import Database as DatabaseBackup
 from common.redis_common import RedisClient
 import logging
 import time
@@ -46,7 +45,7 @@ class PlaylistLoader:
         logging.info("=" * 80)
 
         # 1. 모든 program_id 조회
-        program_ids = DatabaseBackup.get_all_program_ids()
+        program_ids = Database.get_all_program_ids()
 
         if not program_ids:
             logging.error("No programs found!")
@@ -84,7 +83,7 @@ class PlaylistLoader:
             program_id: 프로그램 ID
         """
         # 1. mysql_backup에서 곡 정보 조회
-        songs = DatabaseBackup.get_program_songs(program_id)
+        songs = Database.get_program_songs(program_id)
 
         if not songs:
             logging.warning(f"No songs found for program_id: {program_id}")

@@ -1,4 +1,4 @@
-from common.mysql_backup_common import Database
+from common.mysql_common import Database
 
 class PlaylistDAO:
     _playlist_table_name = 'tb_song_{0}_m'
